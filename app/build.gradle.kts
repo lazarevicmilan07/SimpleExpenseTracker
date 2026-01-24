@@ -61,7 +61,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3"
+        kotlinCompilerExtensionVersion = "1.5.7"
     }
 
     packaging {
@@ -81,7 +81,7 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
 
     // Compose BOM - use consistent versions
-    val composeBom = platform("androidx.compose:compose-bom:2023.10.01")
+    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -120,8 +120,7 @@ dependencies {
     // Google AdMob
     implementation("com.google.android.gms:play-services-ads:22.6.0")
 
-    // Charts - Vico (use version compatible with Compose BOM 2023.10.01)
-    implementation("com.patrykandpatrick.vico:compose-m3:1.12.0")
+    // Charts - using custom Canvas-based pie chart instead of Vico for compatibility
 
     // PDF Generation
     implementation("com.itextpdf:itext7-core:7.2.5")
