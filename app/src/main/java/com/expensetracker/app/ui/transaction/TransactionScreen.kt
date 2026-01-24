@@ -243,6 +243,7 @@ fun AmountInput(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateSelector(
     selectedDate: LocalDate,
