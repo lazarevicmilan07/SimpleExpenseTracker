@@ -61,7 +61,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.7"
+        kotlinCompilerExtensionVersion = "1.5.3"
     }
 
     packaging {
@@ -80,13 +80,18 @@ dependencies {
     // Material Design (for XML themes)
     implementation("com.google.android.material:material:1.11.0")
 
-    // Compose BOM
-    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
+    // Compose BOM - use consistent versions
+    val composeBom = platform("androidx.compose:compose-bom:2023.10.01")
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
+
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.animation:animation")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
@@ -115,8 +120,8 @@ dependencies {
     // Google AdMob
     implementation("com.google.android.gms:play-services-ads:22.6.0")
 
-    // Charts - Vico
-    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
+    // Charts - Vico (use version compatible with Compose BOM 2023.10.01)
+    implementation("com.patrykandpatrick.vico:compose-m3:1.12.0")
 
     // PDF Generation
     implementation("com.itextpdf:itext7-core:7.2.5")
@@ -134,6 +139,5 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.01.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
