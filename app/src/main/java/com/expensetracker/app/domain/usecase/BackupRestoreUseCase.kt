@@ -96,6 +96,7 @@ data class BackupExpense(
     val amount: Double,
     val note: String,
     val categoryId: Long?,
+    val accountId: Long? = null,
     val type: String,
     val date: String,
     val createdAt: Long
@@ -116,6 +117,7 @@ private fun Expense.toBackupExpense() = BackupExpense(
     amount = amount,
     note = note,
     categoryId = categoryId,
+    accountId = accountId,
     type = type.name,
     date = date.toString(),
     createdAt = createdAt
@@ -126,6 +128,7 @@ private fun BackupExpense.toExpense() = Expense(
     amount = amount,
     note = note,
     categoryId = categoryId,
+    accountId = accountId,
     type = TransactionType.valueOf(type),
     date = LocalDate.parse(date),
     createdAt = createdAt
