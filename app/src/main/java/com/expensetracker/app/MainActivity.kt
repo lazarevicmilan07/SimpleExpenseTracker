@@ -5,9 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -71,11 +74,11 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    contentWindowInsets = WindowInsets(0.dp),
                     bottomBar = {
                         Column {
                             if (showBottomNav) {
                                 NavigationBar(
-                                    modifier = Modifier.height(56.dp),
                                     tonalElevation = 0.dp
                                 ) {
                                     bottomNavItems.forEach { item ->
@@ -97,6 +100,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             AdBanner(preferencesManager = preferencesManager)
+                            // Spacer for system navigation bar (gesture navigation area)
+                            Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                         }
                     }
                 ) { innerPadding ->
