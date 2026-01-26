@@ -3,6 +3,7 @@ package com.expensetracker.app.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -17,6 +18,7 @@ import com.expensetracker.app.ui.premium.PremiumScreen
 import com.expensetracker.app.ui.reports.MonthlyReportsScreen
 import com.expensetracker.app.ui.reports.YearlyReportsScreen
 import com.expensetracker.app.ui.settings.SettingsScreen
+import com.expensetracker.app.ui.transaction.TransactionDetailScreen
 import com.expensetracker.app.ui.transaction.TransactionScreen
 
 sealed class Screen(val route: String) {
@@ -27,6 +29,9 @@ sealed class Screen(val route: String) {
     data object EditTransaction : Screen("edit_transaction/{expenseId}") {
         fun createRoute(expenseId: Long) = "edit_transaction/$expenseId"
     }
+    data object TransactionDetail : Screen("transaction_detail/{expenseId}") {
+        fun createRoute(expenseId: Long) = "transaction_detail/$expenseId"
+    }
     data object Categories : Screen("categories")
     data object Accounts : Screen("accounts")
     data object Settings : Screen("settings")
@@ -35,19 +40,21 @@ sealed class Screen(val route: String) {
 
 @Composable
 fun NavGraph(
-    navController: NavHostController
+    navController: NavHostController,
+    modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Dashboard.route
+        startDestination = Screen.Dashboard.route,
+        modifier = modifier
     ) {
         composable(Screen.Dashboard.route) {
             DashboardScreen(
                 onAddTransaction = {
                     navController.navigate(Screen.AddTransaction.route)
                 },
-                onEditTransaction = { expenseId ->
-                    navController.navigate(Screen.EditTransaction.createRoute(expenseId))
+                onViewTransaction = { expenseId ->
+                    navController.navigate(Screen.TransactionDetail.createRoute(expenseId))
                 },
                 onNavigateToCategories = {
                     navController.navigate(Screen.Categories.route)
@@ -75,6 +82,24 @@ fun NavGraph(
         ) {
             TransactionScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.TransactionDetail.route,
+            arguments = listOf(
+                navArgument("expenseId") { type = NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getLong("expenseId") ?: -1L
+            val dashboardViewModel: DashboardViewModel = hiltViewModel()
+            val currency by dashboardViewModel.currency.collectAsState()
+            TransactionDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onEditTransaction = {
+                    navController.navigate(Screen.EditTransaction.createRoute(expenseId))
+                },
+                currency = currency
             )
         }
 

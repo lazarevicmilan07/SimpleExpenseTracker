@@ -93,28 +93,59 @@ fun TransactionScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Transaction Type Toggle
+            // 1. Transaction Type Toggle
             TransactionTypeToggle(
                 selectedType = uiState.transactionType,
                 onTypeSelected = viewModel::selectTransactionType
             )
 
-            // Amount Input
+            // 2. Amount Input
             AmountInput(
                 amount = uiState.amount,
                 onAmountChange = viewModel::updateAmount,
                 transactionType = uiState.transactionType
             )
 
-            // Date Selector
+            // 3. Category Dropdown
+            CategoryDropdown(
+                categories = rootCategories,
+                selectedCategoryId = if (uiState.showSubcategorySelector) {
+                    // If showing subcategory selector, show the parent category
+                    uiState.selectedParentCategoryId
+                } else {
+                    uiState.selectedCategoryId
+                },
+                allCategories = allCategories,
+                onCategorySelected = { categoryId ->
+                    categoryId?.let { viewModel.selectParentCategory(it) }
+                }
+            )
+
+            // 4. Subcategory Dropdown (conditional - only shown when parent has subcategories)
+            if (uiState.showSubcategorySelector && availableSubcategories.isNotEmpty()) {
+                SubcategoryDropdown(
+                    subcategories = availableSubcategories,
+                    selectedSubcategoryId = uiState.selectedCategoryId,
+                    onSubcategorySelected = { viewModel.selectSubcategory(it!!) }
+                )
+            }
+
+            // 5. Date Selector
             DateSelector(
                 selectedDate = uiState.selectedDate,
                 onClick = { showDatePicker = true }
             )
 
-            // Note Input
+            // 6. Account Selector (optional)
+            AccountSelector(
+                accounts = accounts,
+                selectedAccountId = uiState.selectedAccountId,
+                onAccountSelected = viewModel::selectAccount
+            )
+
+            // 7. Note Input (optional)
             OutlinedTextField(
                 value = uiState.note,
                 onValueChange = viewModel::updateNote,
@@ -125,62 +156,6 @@ fun TransactionScreen(
                     Icon(Icons.Default.Notes, contentDescription = null)
                 }
             )
-
-            // Account Selector
-            AccountSelector(
-                accounts = accounts,
-                selectedAccountId = uiState.selectedAccountId,
-                onAccountSelected = viewModel::selectAccount
-            )
-
-            // Category Selector
-            Text(
-                text = "Category",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
-            )
-
-            // Show selected category if any
-            uiState.selectedCategoryId?.let { categoryId ->
-                val selectedCategory = allCategories.find { it.id == categoryId }
-                selectedCategory?.let { category ->
-                    SelectedCategoryChip(
-                        category = category,
-                        parentCategory = category.parentCategoryId?.let { parentId ->
-                            allCategories.find { it.id == parentId }
-                        },
-                        onClear = {
-                            viewModel.selectCategory(null)
-                            viewModel.clearSubcategorySelection()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-
-            if (uiState.showSubcategorySelector && availableSubcategories.isNotEmpty()) {
-                // Show subcategory selector
-                Text(
-                    text = "Select Subcategory",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                CategoryGrid(
-                    categories = availableSubcategories,
-                    selectedCategoryId = uiState.selectedCategoryId,
-                    onCategorySelected = { viewModel.selectSubcategory(it!!) }
-                )
-            } else if (uiState.selectedCategoryId == null) {
-                // Show root categories
-                CategoryGrid(
-                    categories = rootCategories,
-                    selectedCategoryId = null,
-                    onCategorySelected = { categoryId ->
-                        categoryId?.let { viewModel.selectParentCategory(it) }
-                    }
-                )
-            }
         }
     }
 
@@ -471,6 +446,137 @@ fun DatePickerDialog(
         }
     ) {
         DatePicker(state = datePickerState)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryDropdown(
+    categories: List<Category>,
+    selectedCategoryId: Long?,
+    allCategories: List<Category>,
+    onCategorySelected: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedCategory = allCategories.find { it.id == selectedCategoryId }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedCategory?.name ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Category") },
+            placeholder = { Text("Select a category") },
+            leadingIcon = {
+                if (selectedCategory != null) {
+                    CategoryIcon(
+                        icon = selectedCategory.icon,
+                        color = selectedCategory.color,
+                        size = 24.dp,
+                        iconSize = 14.dp
+                    )
+                } else {
+                    Icon(Icons.Default.Category, contentDescription = null)
+                }
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            categories.forEach { category ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CategoryIcon(
+                                icon = category.icon,
+                                color = category.color,
+                                size = 32.dp,
+                                iconSize = 16.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(category.name)
+                        }
+                    },
+                    onClick = {
+                        onCategorySelected(category.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SubcategoryDropdown(
+    subcategories: List<Category>,
+    selectedSubcategoryId: Long?,
+    onSubcategorySelected: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedSubcategory = subcategories.find { it.id == selectedSubcategoryId }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedSubcategory?.name ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Subcategory") },
+            placeholder = { Text("Select a subcategory") },
+            leadingIcon = {
+                if (selectedSubcategory != null) {
+                    CategoryIcon(
+                        icon = selectedSubcategory.icon,
+                        color = selectedSubcategory.color,
+                        size = 24.dp,
+                        iconSize = 14.dp
+                    )
+                } else {
+                    Icon(Icons.Default.SubdirectoryArrowRight, contentDescription = null)
+                }
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            subcategories.forEach { subcategory ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CategoryIcon(
+                                icon = subcategory.icon,
+                                color = subcategory.color,
+                                size = 32.dp,
+                                iconSize = 16.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(subcategory.name)
+                        }
+                    },
+                    onClick = {
+                        onSubcategorySelected(subcategory.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 

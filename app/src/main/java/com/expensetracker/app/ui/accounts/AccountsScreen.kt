@@ -112,8 +112,7 @@ fun AccountsScreen(
                 AccountListItem(
                     account = account,
                     currency = currency,
-                    onEdit = { viewModel.showEditDialog(account) },
-                    onDelete = { accountToDelete = account }
+                    onClick = { viewModel.showEditDialog(account) }
                 )
             }
         }
@@ -134,6 +133,9 @@ fun AccountsScreen(
             onColorChange = viewModel::updateDialogColor,
             onInitialBalanceChange = viewModel::updateDialogInitialBalance,
             onSave = viewModel::saveAccount,
+            onDelete = if (uiState.editingAccount != null) {
+                { accountToDelete = uiState.editingAccount }
+            } else null,
             onDismiss = viewModel::hideDialog
         )
     }
@@ -151,6 +153,7 @@ fun AccountsScreen(
                     onClick = {
                         viewModel.deleteAccount(account)
                         accountToDelete = null
+                        viewModel.hideDialog()
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -205,43 +208,52 @@ fun TotalBalanceCard(
 fun AccountListItem(
     account: Account,
     currency: String,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             CategoryIcon(
                 icon = account.icon,
-                color = account.color
+                color = account.color,
+                size = 36.dp,
+                iconSize = 18.dp
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = account.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = account.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (account.isDefault) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Default",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 Text(
                     text = AccountTypeNames[account.type] ?: account.type.name,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
-                if (account.isDefault) {
-                    Text(
-                        text = "Default",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
             }
 
             Text(
@@ -253,22 +265,6 @@ fun AccountListItem(
                 else
                     MaterialTheme.colorScheme.error
             )
-
-            IconButton(onClick = onEdit) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-                )
-            }
         }
     }
 }
@@ -288,6 +284,7 @@ fun AccountDialog(
     onColorChange: (Color) -> Unit,
     onInitialBalanceChange: (String) -> Unit,
     onSave: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var typeDropdownExpanded by remember { mutableStateOf(false) }
@@ -453,8 +450,21 @@ fun AccountDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+            Row {
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Delete")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
             }
         }
     )

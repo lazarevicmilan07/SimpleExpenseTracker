@@ -113,11 +113,14 @@ class TransactionViewModel @Inject constructor(
                     // No subcategories, use parent category directly
                     _uiState.value = _uiState.value.copy(
                         selectedCategoryId = categoryId,
+                        selectedParentCategoryId = categoryId,
                         showSubcategorySelector = false
                     )
                 } else {
                     // Show subcategory selector
                     _uiState.value = _uiState.value.copy(
+                        selectedParentCategoryId = categoryId,
+                        selectedCategoryId = null, // Clear until subcategory is selected
                         showSubcategorySelector = true
                     )
                 }
@@ -135,7 +138,11 @@ class TransactionViewModel @Inject constructor(
     fun clearSubcategorySelection() {
         _selectedParentCategoryId.value = null
         _availableSubcategories.value = emptyList()
-        _uiState.value = _uiState.value.copy(showSubcategorySelector = false)
+        _uiState.value = _uiState.value.copy(
+            showSubcategorySelector = false,
+            selectedParentCategoryId = null,
+            selectedCategoryId = null
+        )
     }
 
     fun getSelectedCategoryName(): String? {
@@ -195,6 +202,7 @@ data class TransactionUiState(
     val amount: String = "",
     val note: String = "",
     val selectedCategoryId: Long? = null,
+    val selectedParentCategoryId: Long? = null,
     val selectedAccountId: Long? = null,
     val transactionType: TransactionType = TransactionType.EXPENSE,
     val selectedDate: LocalDate = LocalDate.now(),

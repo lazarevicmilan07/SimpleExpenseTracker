@@ -88,44 +88,6 @@ fun CategoriesScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (!categoriesState.isPremium) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Free Plan",
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    text = "${categoriesState.categories.size}/${CategoriesViewModel.FREE_CATEGORY_LIMIT} categories used",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                                )
-                            }
-                            TextButton(onClick = onShowPremium) {
-                                Text("Upgrade")
-                            }
-                        }
-                    }
-                }
-            }
-
             // Display hierarchical categories
             categoriesState.rootCategories.forEach { category ->
                 val hasSubcategories = categoriesState.subcategoriesMap.containsKey(category.id)
@@ -137,8 +99,7 @@ fun CategoriesScreen(
                         hasSubcategories = hasSubcategories,
                         isExpanded = isExpanded,
                         onToggleExpand = { viewModel.toggleCategoryExpanded(category.id) },
-                        onEdit = { viewModel.showEditDialog(category) },
-                        onDelete = { categoryToDelete = category },
+                        onClick = { viewModel.showEditDialog(category) },
                         onAddSubcategory = { viewModel.showAddDialog(parentCategoryId = category.id) }
                     )
                 }
@@ -150,8 +111,7 @@ fun CategoriesScreen(
                         item(key = subcategory.id) {
                             SubcategoryListItem(
                                 category = subcategory,
-                                onEdit = { viewModel.showEditDialog(subcategory) },
-                                onDelete = { categoryToDelete = subcategory }
+                                onClick = { viewModel.showEditDialog(subcategory) }
                             )
                         }
                     }
@@ -164,6 +124,7 @@ fun CategoriesScreen(
     if (uiState.showDialog) {
         CategoryDialog(
             isEditing = uiState.editingCategory != null,
+            isSubcategory = uiState.parentCategoryId != null || uiState.editingCategory?.parentCategoryId != null,
             name = uiState.dialogName,
             icon = uiState.dialogIcon,
             color = uiState.dialogColor,
@@ -171,6 +132,9 @@ fun CategoriesScreen(
             onIconChange = viewModel::updateDialogIcon,
             onColorChange = viewModel::updateDialogColor,
             onSave = viewModel::saveCategory,
+            onDelete = if (uiState.editingCategory != null) {
+                { categoryToDelete = uiState.editingCategory }
+            } else null,
             onDismiss = viewModel::hideDialog
         )
     }
@@ -188,6 +152,7 @@ fun CategoriesScreen(
                     onClick = {
                         viewModel.deleteCategory(category)
                         categoryToDelete = null
+                        viewModel.hideDialog()
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -211,23 +176,27 @@ fun CategoryListItem(
     hasSubcategories: Boolean = false,
     isExpanded: Boolean = false,
     onToggleExpand: () -> Unit = {},
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onClick: () -> Unit,
     onAddSubcategory: () -> Unit = {}
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Expand/collapse button for categories that have or can have subcategories
             IconButton(
-                onClick = onToggleExpand,
-                modifier = Modifier.size(32.dp)
+                onClick = { onToggleExpand() },
+                modifier = Modifier.size(28.dp)
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
@@ -235,23 +204,26 @@ fun CategoryListItem(
                     tint = if (hasSubcategories)
                         MaterialTheme.colorScheme.onSurface
                     else
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
             CategoryIcon(
                 icon = category.icon,
-                color = category.color
+                color = category.color,
+                size = 36.dp,
+                iconSize = 18.dp
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = category.name,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 if (category.isDefault) {
@@ -264,27 +236,15 @@ fun CategoryListItem(
             }
 
             // Add subcategory button
-            IconButton(onClick = onAddSubcategory) {
+            IconButton(
+                onClick = { onAddSubcategory() },
+                modifier = Modifier.size(32.dp)
+            ) {
                 Icon(
                     Icons.Default.AddCircleOutline,
                     contentDescription = "Add Subcategory",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                )
-            }
-
-            IconButton(onClick = onEdit) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -294,20 +254,19 @@ fun CategoryListItem(
 @Composable
 fun SubcategoryListItem(
     category: Category,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 32.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+            .padding(start = 32.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
+                .padding(horizontal = 10.dp, vertical = 8.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -315,19 +274,19 @@ fun SubcategoryListItem(
                 Icons.Default.SubdirectoryArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
             CategoryIcon(
                 icon = category.icon,
                 color = category.color,
-                size = 36.dp,
-                iconSize = 18.dp
+                size = 32.dp,
+                iconSize = 16.dp
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Text(
                 text = category.name,
@@ -335,24 +294,6 @@ fun SubcategoryListItem(
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
             )
-
-            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
         }
     }
 }
@@ -360,6 +301,7 @@ fun SubcategoryListItem(
 @Composable
 fun CategoryDialog(
     isEditing: Boolean,
+    isSubcategory: Boolean = false,
     name: String,
     icon: String,
     color: Color,
@@ -367,13 +309,19 @@ fun CategoryDialog(
     onIconChange: (String) -> Unit,
     onColorChange: (Color) -> Unit,
     onSave: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
+    val title = when {
+        isEditing && isSubcategory -> "Edit Subcategory"
+        isEditing -> "Edit Category"
+        isSubcategory -> "New Subcategory"
+        else -> "New Category"
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(if (isEditing) "Edit Category" else "New Category")
-        },
+        title = { Text(title) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -484,8 +432,21 @@ fun CategoryDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+            Row {
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Delete")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
             }
         }
     )

@@ -43,7 +43,7 @@ class CategoriesViewModel @Inject constructor(
             rootCategories = rootCategories,
             subcategoriesMap = subcategoriesMap,
             isPremium = isPremium,
-            canAddMore = isPremium || categories.size < FREE_CATEGORY_LIMIT
+            canAddMore = true // Unlimited categories
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CategoriesListState())
 
@@ -142,9 +142,6 @@ class CategoriesViewModel @Inject constructor(
         }
     }
 
-    companion object {
-        const val FREE_CATEGORY_LIMIT = 10
-    }
 }
 
 data class CategoriesUiState(

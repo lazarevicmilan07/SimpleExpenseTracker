@@ -2,6 +2,8 @@ package com.expensetracker.app.ui.dashboard
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -27,7 +29,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,7 +54,7 @@ import kotlin.math.abs
 @Composable
 fun DashboardScreen(
     onAddTransaction: () -> Unit,
-    onEditTransaction: (Long) -> Unit,
+    onViewTransaction: (Long) -> Unit,
     onNavigateToCategories: () -> Unit,
     onNavigateToAccounts: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -58,9 +64,6 @@ fun DashboardScreen(
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val currency by viewModel.currency.collectAsState()
     val isPremium by viewModel.isPremium.collectAsState()
-
-    // State for delete confirmation dialog
-    var transactionToDelete by remember { mutableStateOf<ExpenseWithCategory?>(null) }
 
     Scaffold(
         topBar = {
@@ -98,31 +101,62 @@ fun DashboardScreen(
                 CircularProgressIndicator()
             }
         } else {
-            // Swipe gesture for month navigation
+            // Interactive swipe gesture for month navigation
             val swipeThreshold = 100f
-            var totalDragAmount by remember { mutableFloatStateOf(0f) }
+            val dragOffset = remember { Animatable(0f) }
+            val coroutineScope = rememberCoroutineScope()
 
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .pointerInput(Unit) {
+                    .pointerInput(selectedMonth) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
-                                if (totalDragAmount > swipeThreshold) {
-                                    viewModel.previousMonth()
-                                } else if (totalDragAmount < -swipeThreshold) {
-                                    if (selectedMonth < YearMonth.now()) {
+                                coroutineScope.launch {
+                                    val currentOffset = dragOffset.value
+                                    if (currentOffset > swipeThreshold) {
+                                        // Animate out to the right, then change month
+                                        dragOffset.animateTo(
+                                            targetValue = size.width.toFloat(),
+                                            animationSpec = tween(150)
+                                        )
+                                        viewModel.previousMonth()
+                                        dragOffset.snapTo(0f)
+                                    } else if (currentOffset < -swipeThreshold && selectedMonth < YearMonth.now()) {
+                                        // Animate out to the left, then change month
+                                        dragOffset.animateTo(
+                                            targetValue = -size.width.toFloat(),
+                                            animationSpec = tween(150)
+                                        )
                                         viewModel.nextMonth()
+                                        dragOffset.snapTo(0f)
+                                    } else {
+                                        // Snap back to center
+                                        dragOffset.animateTo(
+                                            targetValue = 0f,
+                                            animationSpec = tween(200)
+                                        )
                                     }
                                 }
-                                totalDragAmount = 0f
                             },
                             onDragCancel = {
-                                totalDragAmount = 0f
+                                coroutineScope.launch {
+                                    dragOffset.animateTo(0f, animationSpec = tween(200))
+                                }
                             },
                             onHorizontalDrag = { _, dragAmount ->
-                                totalDragAmount += dragAmount
+                                coroutineScope.launch {
+                                    // Apply resistance when trying to go past current month
+                                    val newOffset = dragOffset.value + dragAmount
+                                    val resistedOffset = if (selectedMonth >= YearMonth.now() && newOffset < 0) {
+                                        // Apply resistance when swiping left at current month
+                                        dragOffset.value + dragAmount * 0.3f
+                                    } else {
+                                        newOffset
+                                    }
+                                    dragOffset.snapTo(resistedOffset)
+                                }
                             }
                         )
                     },
@@ -138,7 +172,7 @@ fun DashboardScreen(
                     )
                 }
 
-                // Animated content for month transitions
+                // Animated content for month transitions with interactive drag
                 item {
                     var previousMonth by remember { mutableStateOf(selectedMonth) }
                     val isForward = selectedMonth > previousMonth
@@ -161,6 +195,7 @@ fun DashboardScreen(
                         label = "month_transition"
                     ) { (_, state) ->
                         Column(
+                            modifier = Modifier.offset { IntOffset(dragOffset.value.roundToInt(), 0) },
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             // Summary Card
@@ -180,11 +215,10 @@ fun DashboardScreen(
                                 )
 
                                 state.recentTransactions.forEach { transaction ->
-                                    TransactionItemWithActions(
+                                    CompactTransactionItem(
                                         transaction = transaction,
                                         currency = currency,
-                                        onEdit = { onEditTransaction(transaction.expense.id) },
-                                        onDelete = { transactionToDelete = transaction }
+                                        onClick = { onViewTransaction(transaction.expense.id) }
                                     )
                                 }
                             } else {
@@ -195,40 +229,6 @@ fun DashboardScreen(
                 }
             }
         }
-    }
-
-    // Delete Confirmation Dialog
-    transactionToDelete?.let { transaction ->
-        AlertDialog(
-            onDismissRequest = { transactionToDelete = null },
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-            title = { Text("Delete Transaction") },
-            text = {
-                Text(
-                    "Are you sure you want to delete this ${
-                        if (transaction.expense.type == TransactionType.EXPENSE) "expense" else "income"
-                    } of ${formatCurrency(transaction.expense.amount, currency)}?"
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteExpense(transaction.expense.id)
-                        transactionToDelete = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { transactionToDelete = null }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
@@ -445,11 +445,10 @@ fun SimplePieChart(
 }
 
 @Composable
-fun TransactionItemWithActions(
+fun CompactTransactionItem(
     transaction: ExpenseWithCategory,
     currency: String,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
     val isExpense = transaction.expense.type == TransactionType.EXPENSE
     val amountColor by animateColorAsState(
@@ -457,31 +456,45 @@ fun TransactionItemWithActions(
         label = "amount_color"
     )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp)
     ) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             CategoryIcon(
                 icon = transaction.category?.icon ?: "more_horiz",
-                color = transaction.category?.color ?: Color.Gray
+                color = transaction.category?.color ?: Color.Gray,
+                size = 36.dp,
+                iconSize = 18.dp
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = transaction.category?.name ?: "Uncategorized",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = transaction.category?.name ?: "Uncategorized",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = transaction.expense.date.format(DateTimeFormatter.ofPattern("MMM d")),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
                 if (transaction.expense.note.isNotBlank()) {
                     Text(
                         text = transaction.expense.note,
@@ -491,39 +504,16 @@ fun TransactionItemWithActions(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Text(
-                    text = transaction.expense.date.format(DateTimeFormatter.ofPattern("MMM dd")),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
             }
-
-            Text(
-                text = "${if (isExpense) "-" else "+"}${formatCurrency(transaction.expense.amount, currency)}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = amountColor
-            )
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            Text(
+                text = "${if (isExpense) "-" else "+"}${formatCurrency(transaction.expense.amount, currency)}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = amountColor
+            )
         }
     }
 }
