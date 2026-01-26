@@ -1,6 +1,12 @@
 package com.expensetracker.app.ui.dashboard
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -132,50 +138,59 @@ fun DashboardScreen(
                     )
                 }
 
-                // Summary Card
+                // Animated content for month transitions
                 item {
-                    SummaryCard(
-                        income = uiState.monthlyStats.totalIncome,
-                        expense = uiState.monthlyStats.totalExpense,
-                        balance = uiState.monthlyStats.balance,
-                        currency = currency
-                    )
-                }
+                    var previousMonth by remember { mutableStateOf(selectedMonth) }
+                    val isForward = selectedMonth > previousMonth
 
-                // Pie Chart
-                if (uiState.monthlyStats.categoryBreakdown.isNotEmpty()) {
-                    item {
-                        ExpenseBreakdownCard(
-                            breakdown = uiState.monthlyStats.categoryBreakdown,
-                            currency = currency
-                        )
-                    }
-                }
-
-                // Recent Transactions
-                if (uiState.recentTransactions.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Recent Transactions",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    LaunchedEffect(selectedMonth) {
+                        previousMonth = selectedMonth
                     }
 
-                    items(
-                        items = uiState.recentTransactions,
-                        key = { it.expense.id }
-                    ) { transaction ->
-                        SwipeableTransactionItem(
-                            transaction = transaction,
-                            currency = currency,
-                            onClick = { onEditTransaction(transaction.expense.id) },
-                            onDelete = { transactionToDelete = transaction }
-                        )
-                    }
-                } else {
-                    item {
-                        EmptyState()
+                    AnimatedContent(
+                        targetState = Pair(selectedMonth, uiState),
+                        transitionSpec = {
+                            if (isForward) {
+                                (slideInHorizontally { width -> width } + fadeIn()) togetherWith
+                                        (slideOutHorizontally { width -> -width } + fadeOut())
+                            } else {
+                                (slideInHorizontally { width -> -width } + fadeIn()) togetherWith
+                                        (slideOutHorizontally { width -> width } + fadeOut())
+                            }
+                        },
+                        label = "month_transition"
+                    ) { (_, state) ->
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Summary Card
+                            SummaryCard(
+                                income = state.monthlyStats.totalIncome,
+                                expense = state.monthlyStats.totalExpense,
+                                balance = state.monthlyStats.balance,
+                                currency = currency
+                            )
+
+                            // Recent Transactions
+                            if (state.recentTransactions.isNotEmpty()) {
+                                Text(
+                                    text = "Recent Transactions",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                state.recentTransactions.forEach { transaction ->
+                                    TransactionItemWithActions(
+                                        transaction = transaction,
+                                        currency = currency,
+                                        onEdit = { onEditTransaction(transaction.expense.id) },
+                                        onDelete = { transactionToDelete = transaction }
+                                    )
+                                }
+                            } else {
+                                EmptyState()
+                            }
+                        }
                     }
                 }
             }
@@ -429,59 +444,12 @@ fun SimplePieChart(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SwipeableTransactionItem(
+fun TransactionItemWithActions(
     transaction: ExpenseWithCategory,
     currency: String,
-    onClick: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
-) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { dismissValue ->
-            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                false // Don't actually dismiss, let the dialog handle it
-            } else {
-                false
-            }
-        }
-    )
-
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-        },
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true
-    ) {
-        TransactionItem(
-            transaction = transaction,
-            currency = currency,
-            onClick = onClick
-        )
-    }
-}
-
-@Composable
-fun TransactionItem(
-    transaction: ExpenseWithCategory,
-    currency: String,
-    onClick: () -> Unit
 ) {
     val isExpense = transaction.expense.type == TransactionType.EXPENSE
     val amountColor by animateColorAsState(
@@ -490,9 +458,7 @@ fun TransactionItem(
     )
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -538,6 +504,26 @@ fun TransactionItem(
                 fontWeight = FontWeight.SemiBold,
                 color = amountColor
             )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

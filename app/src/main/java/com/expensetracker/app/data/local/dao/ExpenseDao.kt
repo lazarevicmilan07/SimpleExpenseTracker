@@ -35,6 +35,24 @@ interface ExpenseDao {
     """)
     suspend fun getCategoryTotals(type: TransactionType, startDate: Long, endDate: Long): List<CategoryTotal>
 
+    @Query("""
+        SELECT categoryId, SUM(amount) as total FROM expenses
+        WHERE type = :type AND date BETWEEN :startDate AND :endDate
+        GROUP BY categoryId
+    """)
+    fun getCategoryTotalsFlow(type: TransactionType, startDate: Long, endDate: Long): Flow<List<CategoryTotal>>
+
+    @Query("""
+        SELECT strftime('%m', date / 1000, 'unixepoch') as month,
+               type,
+               SUM(amount) as total
+        FROM expenses
+        WHERE date BETWEEN :startDate AND :endDate
+        GROUP BY month, type
+        ORDER BY month
+    """)
+    fun getMonthlyTotalsForYear(startDate: Long, endDate: Long): Flow<List<MonthlyTotal>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpense(expense: ExpenseEntity): Long
 
@@ -59,5 +77,11 @@ interface ExpenseDao {
 
 data class CategoryTotal(
     val categoryId: Long?,
+    val total: Double
+)
+
+data class MonthlyTotal(
+    val month: String,
+    val type: TransactionType,
     val total: Double
 )

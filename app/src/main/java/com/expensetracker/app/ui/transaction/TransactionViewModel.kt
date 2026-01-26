@@ -35,8 +35,21 @@ class TransactionViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TransactionUiState())
     val uiState: StateFlow<TransactionUiState> = _uiState.asStateFlow()
 
-    val categories: StateFlow<List<Category>> = categoryRepository.getAllCategories()
+    // All categories for lookup
+    private val allCategories: StateFlow<List<Category>> = categoryRepository.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Root categories (no parent) for initial selection
+    val rootCategories: StateFlow<List<Category>> = categoryRepository.getRootCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Subcategories of currently selected parent category
+    private val _selectedParentCategoryId = MutableStateFlow<Long?>(null)
+    private val _availableSubcategories = MutableStateFlow<List<Category>>(emptyList())
+    val availableSubcategories: StateFlow<List<Category>> = _availableSubcategories.asStateFlow()
+
+    // For backward compatibility
+    val categories: StateFlow<List<Category>> = allCategories
 
     val accounts: StateFlow<List<Account>> = accountRepository.getAllAccounts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -91,6 +104,50 @@ class TransactionViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(selectedCategoryId = categoryId)
     }
 
+    fun selectParentCategory(categoryId: Long) {
+        _selectedParentCategoryId.value = categoryId
+        viewModelScope.launch {
+            categoryRepository.getSubcategories(categoryId).collect { subcategories ->
+                _availableSubcategories.value = subcategories
+                if (subcategories.isEmpty()) {
+                    // No subcategories, use parent category directly
+                    _uiState.value = _uiState.value.copy(
+                        selectedCategoryId = categoryId,
+                        showSubcategorySelector = false
+                    )
+                } else {
+                    // Show subcategory selector
+                    _uiState.value = _uiState.value.copy(
+                        showSubcategorySelector = true
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectSubcategory(subcategoryId: Long) {
+        _uiState.value = _uiState.value.copy(
+            selectedCategoryId = subcategoryId,
+            showSubcategorySelector = false
+        )
+    }
+
+    fun clearSubcategorySelection() {
+        _selectedParentCategoryId.value = null
+        _availableSubcategories.value = emptyList()
+        _uiState.value = _uiState.value.copy(showSubcategorySelector = false)
+    }
+
+    fun getSelectedCategoryName(): String? {
+        val categoryId = _uiState.value.selectedCategoryId ?: return null
+        return allCategories.value.find { it.id == categoryId }?.name
+    }
+
+    fun getSelectedParentCategoryName(): String? {
+        val parentId = _selectedParentCategoryId.value ?: return null
+        return allCategories.value.find { it.id == parentId }?.name
+    }
+
     fun selectAccount(accountId: Long?) {
         _uiState.value = _uiState.value.copy(selectedAccountId = accountId)
     }
@@ -141,7 +198,8 @@ data class TransactionUiState(
     val selectedAccountId: Long? = null,
     val transactionType: TransactionType = TransactionType.EXPENSE,
     val selectedDate: LocalDate = LocalDate.now(),
-    val isEditing: Boolean = false
+    val isEditing: Boolean = false,
+    val showSubcategorySelector: Boolean = false
 )
 
 sealed class TransactionEvent {

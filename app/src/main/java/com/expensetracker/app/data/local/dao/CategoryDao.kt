@@ -15,6 +15,15 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY isDefault DESC, name ASC")
     fun getAllCategories(): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM categories WHERE parentCategoryId IS NULL ORDER BY isDefault DESC, name ASC")
+    fun getRootCategories(): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories WHERE parentCategoryId = :parentId ORDER BY name ASC")
+    fun getSubcategories(parentId: Long): Flow<List<CategoryEntity>>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM categories WHERE parentCategoryId = :categoryId LIMIT 1)")
+    suspend fun hasSubcategories(categoryId: Long): Boolean
+
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun getCategoryById(id: Long): CategoryEntity?
 

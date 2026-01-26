@@ -27,7 +27,10 @@ object AppModule {
             ExpenseDatabase::class.java,
             ExpenseDatabase.DATABASE_NAME
         )
-            .addMigrations(ExpenseDatabase.MIGRATION_1_2)
+            .addMigrations(
+                ExpenseDatabase.MIGRATION_1_2,
+                ExpenseDatabase.MIGRATION_2_3
+            )
             .build()
     }
 

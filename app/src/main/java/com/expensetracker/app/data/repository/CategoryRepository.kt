@@ -20,6 +20,19 @@ class CategoryRepository @Inject constructor(
             entities.map { it.toDomain() }
         }
 
+    fun getRootCategories(): Flow<List<Category>> =
+        categoryDao.getRootCategories().map { entities ->
+            entities.map { it.toDomain() }
+        }
+
+    fun getSubcategories(parentId: Long): Flow<List<Category>> =
+        categoryDao.getSubcategories(parentId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+
+    suspend fun hasSubcategories(categoryId: Long): Boolean =
+        categoryDao.hasSubcategories(categoryId)
+
     suspend fun getCategoryById(id: Long): Category? =
         categoryDao.getCategoryById(id)?.toDomain()
 

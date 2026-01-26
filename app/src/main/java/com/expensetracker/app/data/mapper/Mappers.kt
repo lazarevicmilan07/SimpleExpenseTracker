@@ -17,6 +17,7 @@ fun CategoryEntity.toDomain(): Category = Category(
     icon = icon,
     color = Color(color.toULong()),
     isDefault = isDefault,
+    parentCategoryId = parentCategoryId,
     createdAt = createdAt
 )
 
@@ -26,6 +27,7 @@ fun Category.toEntity(): CategoryEntity = CategoryEntity(
     icon = icon,
     color = color.value.toLong(),
     isDefault = isDefault,
+    parentCategoryId = parentCategoryId,
     createdAt = createdAt
 )
 

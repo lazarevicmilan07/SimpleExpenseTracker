@@ -27,12 +27,21 @@ class CategoriesViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CategoriesUiState())
     val uiState: StateFlow<CategoriesUiState> = _uiState.asStateFlow()
 
+    private val _expandedCategories = MutableStateFlow<Set<Long>>(emptySet())
+    val expandedCategories: StateFlow<Set<Long>> = _expandedCategories.asStateFlow()
+
     val categoriesState: StateFlow<CategoriesListState> = combine(
         categoryRepository.getAllCategories(),
         preferencesManager.isPremium
     ) { categories, isPremium ->
+        val rootCategories = categories.filter { it.parentCategoryId == null }
+        val subcategoriesMap = categories
+            .filter { it.parentCategoryId != null }
+            .groupBy { it.parentCategoryId!! }
         CategoriesListState(
             categories = categories,
+            rootCategories = rootCategories,
+            subcategoriesMap = subcategoriesMap,
             isPremium = isPremium,
             canAddMore = isPremium || categories.size < FREE_CATEGORY_LIMIT
         )
@@ -41,7 +50,15 @@ class CategoriesViewModel @Inject constructor(
     private val _events = MutableSharedFlow<CategoryEvent>()
     val events = _events.asSharedFlow()
 
-    fun showAddDialog() {
+    fun toggleCategoryExpanded(categoryId: Long) {
+        _expandedCategories.value = if (categoryId in _expandedCategories.value) {
+            _expandedCategories.value - categoryId
+        } else {
+            _expandedCategories.value + categoryId
+        }
+    }
+
+    fun showAddDialog(parentCategoryId: Long? = null) {
         val state = categoriesState.value
         if (!state.canAddMore) {
             viewModelScope.launch {
@@ -54,7 +71,8 @@ class CategoriesViewModel @Inject constructor(
             editingCategory = null,
             dialogName = "",
             dialogIcon = "category",
-            dialogColor = Color(0xFF4ECDC4)
+            dialogColor = Color(0xFF4ECDC4),
+            parentCategoryId = parentCategoryId
         )
     }
 
@@ -97,7 +115,8 @@ class CategoriesViewModel @Inject constructor(
                 name = state.dialogName.trim(),
                 icon = state.dialogIcon,
                 color = state.dialogColor,
-                isDefault = state.editingCategory?.isDefault ?: false
+                isDefault = state.editingCategory?.isDefault ?: false,
+                parentCategoryId = state.editingCategory?.parentCategoryId ?: state.parentCategoryId
             )
 
             if (state.editingCategory != null) {
@@ -113,6 +132,11 @@ class CategoriesViewModel @Inject constructor(
 
     fun deleteCategory(category: Category) {
         viewModelScope.launch {
+            // Check if category has subcategories
+            if (categoryRepository.hasSubcategories(category.id)) {
+                _events.emit(CategoryEvent.ShowError("Cannot delete category with subcategories. Delete subcategories first."))
+                return@launch
+            }
             categoryRepository.deleteCategory(category)
             _events.emit(CategoryEvent.CategoryDeleted)
         }
@@ -128,11 +152,14 @@ data class CategoriesUiState(
     val editingCategory: Category? = null,
     val dialogName: String = "",
     val dialogIcon: String = "category",
-    val dialogColor: Color = Color(0xFF4ECDC4)
+    val dialogColor: Color = Color(0xFF4ECDC4),
+    val parentCategoryId: Long? = null
 )
 
 data class CategoriesListState(
     val categories: List<Category> = emptyList(),
+    val rootCategories: List<Category> = emptyList(),
+    val subcategoriesMap: Map<Long, List<Category>> = emptyMap(),
     val isPremium: Boolean = false,
     val canAddMore: Boolean = true
 )

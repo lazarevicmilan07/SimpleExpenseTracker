@@ -44,7 +44,9 @@ fun TransactionScreen(
     viewModel: TransactionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val categories by viewModel.categories.collectAsState()
+    val rootCategories by viewModel.rootCategories.collectAsState()
+    val availableSubcategories by viewModel.availableSubcategories.collectAsState()
+    val allCategories by viewModel.categories.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val context = LocalContext.current
 
@@ -138,11 +140,47 @@ fun TransactionScreen(
                 fontWeight = FontWeight.Medium
             )
 
-            CategoryGrid(
-                categories = categories,
-                selectedCategoryId = uiState.selectedCategoryId,
-                onCategorySelected = viewModel::selectCategory
-            )
+            // Show selected category if any
+            uiState.selectedCategoryId?.let { categoryId ->
+                val selectedCategory = allCategories.find { it.id == categoryId }
+                selectedCategory?.let { category ->
+                    SelectedCategoryChip(
+                        category = category,
+                        parentCategory = category.parentCategoryId?.let { parentId ->
+                            allCategories.find { it.id == parentId }
+                        },
+                        onClear = {
+                            viewModel.selectCategory(null)
+                            viewModel.clearSubcategorySelection()
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            if (uiState.showSubcategorySelector && availableSubcategories.isNotEmpty()) {
+                // Show subcategory selector
+                Text(
+                    text = "Select Subcategory",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                CategoryGrid(
+                    categories = availableSubcategories,
+                    selectedCategoryId = uiState.selectedCategoryId,
+                    onCategorySelected = { viewModel.selectSubcategory(it!!) }
+                )
+            } else if (uiState.selectedCategoryId == null) {
+                // Show root categories
+                CategoryGrid(
+                    categories = rootCategories,
+                    selectedCategoryId = null,
+                    onCategorySelected = { categoryId ->
+                        categoryId?.let { viewModel.selectParentCategory(it) }
+                    }
+                )
+            }
         }
     }
 
@@ -286,6 +324,54 @@ fun DateSelector(
                 Text(
                     text = selectedDate.format(formatter),
                     style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SelectedCategoryChip(
+    category: Category,
+    parentCategory: Category?,
+    onClear: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = category.color.copy(alpha = 0.15f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CategoryIcon(
+                icon = category.icon,
+                color = category.color,
+                size = 36.dp,
+                iconSize = 18.dp
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                if (parentCategory != null) {
+                    Text(
+                        text = parentCategory.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+                Text(
+                    text = category.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            IconButton(onClick = onClear, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Clear selection",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

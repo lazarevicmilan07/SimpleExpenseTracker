@@ -14,11 +14,15 @@ import com.expensetracker.app.ui.categories.CategoriesScreen
 import com.expensetracker.app.ui.dashboard.DashboardScreen
 import com.expensetracker.app.ui.dashboard.DashboardViewModel
 import com.expensetracker.app.ui.premium.PremiumScreen
+import com.expensetracker.app.ui.reports.MonthlyReportsScreen
+import com.expensetracker.app.ui.reports.YearlyReportsScreen
 import com.expensetracker.app.ui.settings.SettingsScreen
 import com.expensetracker.app.ui.transaction.TransactionScreen
 
 sealed class Screen(val route: String) {
     data object Dashboard : Screen("dashboard")
+    data object MonthlyReports : Screen("monthly_reports")
+    data object YearlyReports : Screen("yearly_reports")
     data object AddTransaction : Screen("add_transaction")
     data object EditTransaction : Screen("edit_transaction/{expenseId}") {
         fun createRoute(expenseId: Long) = "edit_transaction/$expenseId"
@@ -101,6 +105,18 @@ fun NavGraph(
             PremiumScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+
+        composable(Screen.MonthlyReports.route) {
+            val dashboardViewModel: DashboardViewModel = hiltViewModel()
+            val currency by dashboardViewModel.currency.collectAsState()
+            MonthlyReportsScreen(currency = currency)
+        }
+
+        composable(Screen.YearlyReports.route) {
+            val dashboardViewModel: DashboardViewModel = hiltViewModel()
+            val currency by dashboardViewModel.currency.collectAsState()
+            YearlyReportsScreen(currency = currency)
         }
     }
 }

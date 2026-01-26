@@ -1,6 +1,8 @@
 package com.expensetracker.app.data.repository
 
+import com.expensetracker.app.data.local.dao.CategoryTotal
 import com.expensetracker.app.data.local.dao.ExpenseDao
+import com.expensetracker.app.data.local.dao.MonthlyTotal
 import com.expensetracker.app.data.local.entity.TransactionType
 import com.expensetracker.app.data.mapper.toDomain
 import com.expensetracker.app.data.mapper.toEntity
@@ -84,6 +86,33 @@ class ExpenseRepository @Inject constructor(
 
     suspend fun deleteAllExpenses() =
         expenseDao.deleteAllExpenses()
+
+    fun getCategoryTotalsFlow(type: TransactionType, year: Int, month: Int): Flow<List<CategoryTotal>> {
+        val startDate = LocalDate.of(year, month, 1)
+        val endDate = startDate.plusMonths(1).minusDays(1)
+        return expenseDao.getCategoryTotalsFlow(type, startDate.toEpochMilli(), endDate.toEpochMilli())
+    }
+
+    fun getYearlyCategoryTotals(type: TransactionType, year: Int): Flow<List<CategoryTotal>> {
+        val startDate = LocalDate.of(year, 1, 1)
+        val endDate = LocalDate.of(year, 12, 31)
+        return expenseDao.getCategoryTotalsFlow(type, startDate.toEpochMilli(), endDate.toEpochMilli())
+    }
+
+    fun getMonthlyTotalsForYear(year: Int): Flow<List<MonthlyTotal>> {
+        val startDate = LocalDate.of(year, 1, 1)
+        val endDate = LocalDate.of(year, 12, 31)
+        return expenseDao.getMonthlyTotalsForYear(startDate.toEpochMilli(), endDate.toEpochMilli())
+    }
+
+    fun getExpensesByYear(year: Int): Flow<List<Expense>> {
+        val startDate = LocalDate.of(year, 1, 1)
+        val endDate = LocalDate.of(year, 12, 31)
+        return expenseDao.getExpensesByDateRange(
+            startDate.toEpochMilli(),
+            endDate.toEpochMilli()
+        ).map { entities -> entities.map { it.toDomain() } }
+    }
 
     private fun LocalDate.toEpochMilli(): Long =
         atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()

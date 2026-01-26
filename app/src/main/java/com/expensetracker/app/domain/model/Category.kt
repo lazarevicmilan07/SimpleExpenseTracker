@@ -8,6 +8,7 @@ data class Category(
     val icon: String,
     val color: Color,
     val isDefault: Boolean = false,
+    val parentCategoryId: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
 
