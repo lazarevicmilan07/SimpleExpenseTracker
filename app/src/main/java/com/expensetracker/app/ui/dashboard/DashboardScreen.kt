@@ -1,14 +1,8 @@
 package com.expensetracker.app.ui.dashboard
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -173,58 +167,37 @@ fun DashboardScreen(
                     )
                 }
 
-                // Animated content for month transitions with interactive drag
+                // Month content with interactive drag
                 item {
-                    var previousMonth by remember { mutableStateOf(selectedMonth) }
-                    val isForward = selectedMonth > previousMonth
+                    Column(
+                        modifier = Modifier.offset { IntOffset(dragOffset.value.roundToInt(), 0) },
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Summary Card
+                        SummaryCard(
+                            income = uiState.monthlyStats.totalIncome,
+                            expense = uiState.monthlyStats.totalExpense,
+                            balance = uiState.monthlyStats.balance,
+                            currency = currency
+                        )
 
-                    LaunchedEffect(selectedMonth) {
-                        previousMonth = selectedMonth
-                    }
-
-                    AnimatedContent(
-                        targetState = Pair(selectedMonth, uiState),
-                        transitionSpec = {
-                            if (isForward) {
-                                (slideInHorizontally { width -> width } + fadeIn()) togetherWith
-                                        (slideOutHorizontally { width -> -width } + fadeOut())
-                            } else {
-                                (slideInHorizontally { width -> -width } + fadeIn()) togetherWith
-                                        (slideOutHorizontally { width -> width } + fadeOut())
-                            }
-                        },
-                        label = "month_transition"
-                    ) { (_, state) ->
-                        Column(
-                            modifier = Modifier.offset { IntOffset(dragOffset.value.roundToInt(), 0) },
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Summary Card
-                            SummaryCard(
-                                income = state.monthlyStats.totalIncome,
-                                expense = state.monthlyStats.totalExpense,
-                                balance = state.monthlyStats.balance,
-                                currency = currency
+                        // Recent Transactions
+                        if (uiState.recentTransactions.isNotEmpty()) {
+                            Text(
+                                text = "Recent Transactions",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
                             )
 
-                            // Recent Transactions
-                            if (state.recentTransactions.isNotEmpty()) {
-                                Text(
-                                    text = "Recent Transactions",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
+                            uiState.recentTransactions.forEach { transaction ->
+                                CompactTransactionItem(
+                                    transaction = transaction,
+                                    currency = currency,
+                                    onClick = { onViewTransaction(transaction.expense.id) }
                                 )
-
-                                state.recentTransactions.forEach { transaction ->
-                                    CompactTransactionItem(
-                                        transaction = transaction,
-                                        currency = currency,
-                                        onClick = { onViewTransaction(transaction.expense.id) }
-                                    )
-                                }
-                            } else {
-                                EmptyState()
                             }
+                        } else {
+                            EmptyState()
                         }
                     }
                 }
