@@ -71,7 +71,8 @@ class BackupRestoreUseCase @Inject constructor(
         val expenses = backupData.expenses.map { backupExpense ->
             backupExpense.toExpense().copy(
                 id = 0,
-                categoryId = backupExpense.categoryId?.let { categoryIdMapping[it] }
+                categoryId = backupExpense.categoryId?.let { categoryIdMapping[it] },
+                subcategoryId = backupExpense.subcategoryId?.let { categoryIdMapping[it] }
             )
         }
         expenseRepository.insertExpenses(expenses)
@@ -96,6 +97,7 @@ data class BackupExpense(
     val amount: Double,
     val note: String,
     val categoryId: Long?,
+    val subcategoryId: Long? = null,
     val accountId: Long? = null,
     val type: String,
     val date: String,
@@ -117,6 +119,7 @@ private fun Expense.toBackupExpense() = BackupExpense(
     amount = amount,
     note = note,
     categoryId = categoryId,
+    subcategoryId = subcategoryId,
     accountId = accountId,
     type = type.name,
     date = date.toString(),
@@ -128,6 +131,7 @@ private fun BackupExpense.toExpense() = Expense(
     amount = amount,
     note = note,
     categoryId = categoryId,
+    subcategoryId = subcategoryId,
     accountId = accountId,
     type = TransactionType.valueOf(type),
     date = LocalDate.parse(date),

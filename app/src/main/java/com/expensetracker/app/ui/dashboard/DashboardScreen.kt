@@ -181,20 +181,34 @@ fun DashboardScreen(
                             currency = currency
                         )
 
-                        // Recent Transactions
+                        // Transactions grouped by date
                         if (uiState.recentTransactions.isNotEmpty()) {
                             Text(
-                                text = "Recent Transactions",
+                                text = "Transactions",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
 
-                            uiState.recentTransactions.forEach { transaction ->
-                                CompactTransactionItem(
-                                    transaction = transaction,
-                                    currency = currency,
-                                    onClick = { onViewTransaction(transaction.expense.id) }
+                            val groupedByDate = uiState.recentTransactions
+                                .sortedByDescending { it.expense.date }
+                                .groupBy { it.expense.date }
+
+                            groupedByDate.forEach { (date, transactions) ->
+                                // Date header
+                                Text(
+                                    text = date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                                 )
+
+                                transactions.forEach { transaction ->
+                                    CompactTransactionItem(
+                                        transaction = transaction,
+                                        currency = currency,
+                                        onClick = { onViewTransaction(transaction.expense.id) }
+                                    )
+                                }
                             }
                         } else {
                             EmptyState()
@@ -259,11 +273,16 @@ fun SummaryCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
+            val balanceColor = when {
+                balance > 0 -> IncomeGreen
+                balance < 0 -> ExpenseRed
+                else -> MaterialTheme.colorScheme.onPrimaryContainer
+            }
             Text(
                 text = formatCurrency(balance, currency),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = balanceColor
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -429,6 +448,9 @@ fun CompactTransactionItem(
         targetValue = if (isExpense) ExpenseRed else IncomeGreen,
         label = "amount_color"
     )
+    val hasSubcategory = transaction.subcategory != null
+    val hasNote = transaction.expense.note.isNotBlank()
+    val accountName = transaction.account?.name
 
     Surface(
         modifier = Modifier
@@ -439,44 +461,87 @@ fun CompactTransactionItem(
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             CategoryIcon(
                 icon = transaction.category?.icon ?: "more_horiz",
                 color = transaction.category?.color ?: Color.Gray,
-                size = 36.dp,
-                iconSize = 18.dp
+                size = 30.dp,
+                iconSize = 15.dp
             )
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
+            // Middle section: left = category/subcategory, right = note/account
             Column(modifier = Modifier.weight(1f)) {
+                // Top row: category (left) and note (right)
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = transaction.category?.name ?: "Uncategorized",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = transaction.expense.date.format(DateTimeFormatter.ofPattern("MMM d")),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
+                    if (hasNote && (hasSubcategory || accountName != null)) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = transaction.expense.note,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-                if (transaction.expense.note.isNotBlank()) {
-                    Text(
-                        text = transaction.expense.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                // Bottom row: subcategory (left) and account (right)
+                // Only show if there's something for a second row
+                if (hasSubcategory || accountName != null || (hasNote && !hasSubcategory && accountName == null)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Left side of bottom row
+                        if (hasSubcategory) {
+                            Text(
+                                text = transaction.subcategory!!.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                        } else if (hasNote && accountName == null) {
+                            // No subcategory, no account — put note on bottom left
+                            Text(
+                                text = transaction.expense.note,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                        if (accountName != null) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = accountName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
 
@@ -484,7 +549,7 @@ fun CompactTransactionItem(
 
             Text(
                 text = "${if (isExpense) "-" else "+"}${formatCurrency(transaction.expense.amount, currency)}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
                 color = amountColor
             )

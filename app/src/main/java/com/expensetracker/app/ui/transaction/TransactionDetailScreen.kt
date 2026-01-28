@@ -221,7 +221,10 @@ fun TransactionDetailContent(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = category.name,
+                                    text = buildString {
+                                        append(category.name)
+                                        transaction.subcategory?.let { append(" / ${it.name}") }
+                                    },
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             } ?: Text(

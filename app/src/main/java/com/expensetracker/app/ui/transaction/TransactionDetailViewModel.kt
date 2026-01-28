@@ -39,7 +39,8 @@ class TransactionDetailViewModel @Inject constructor(
             val expense = expenseRepository.getExpenseById(expenseId)
             if (expense != null) {
                 val category = expense.categoryId?.let { categoryRepository.getCategoryById(it) }
-                _transaction.value = ExpenseWithCategory(expense, category)
+                val subcategory = expense.subcategoryId?.let { categoryRepository.getCategoryById(it) }
+                _transaction.value = ExpenseWithCategory(expense, category, subcategory)
             }
         }
     }

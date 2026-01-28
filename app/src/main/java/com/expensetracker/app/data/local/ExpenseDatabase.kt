@@ -18,7 +18,7 @@ import com.expensetracker.app.data.local.entity.ExpenseEntity
         CategoryEntity::class,
         AccountEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -67,6 +67,12 @@ abstract class ExpenseDatabase : RoomDatabase() {
 
                 // Create index for parentCategoryId
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_categories_parentCategoryId ON categories(parentCategoryId)")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE expenses ADD COLUMN subcategoryId INTEGER DEFAULT NULL")
             }
         }
     }

@@ -8,6 +8,7 @@ data class Expense(
     val amount: Double,
     val note: String,
     val categoryId: Long?,
+    val subcategoryId: Long? = null,
     val accountId: Long?,
     val type: TransactionType,
     val date: LocalDate,
@@ -16,7 +17,9 @@ data class Expense(
 
 data class ExpenseWithCategory(
     val expense: Expense,
-    val category: Category?
+    val category: Category?,
+    val subcategory: Category? = null,
+    val account: Account? = null
 )
 
 data class MonthlyStats(

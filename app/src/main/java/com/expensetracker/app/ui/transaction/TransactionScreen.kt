@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -22,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -94,6 +97,7 @@ fun TransactionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -103,6 +107,7 @@ fun TransactionScreen(
                 onTypeSelected = viewModel::selectTransactionType
             )
 
+
             // 2. Amount Input
             AmountInput(
                 amount = uiState.amount,
@@ -110,7 +115,20 @@ fun TransactionScreen(
                 transactionType = uiState.transactionType
             )
 
-            // 3. Category Dropdown
+            // 3. Date Selector
+            DateSelector(
+                selectedDate = uiState.selectedDate,
+                onClick = { showDatePicker = true }
+            )
+
+            // 4. Account Selector (optional)
+            AccountSelector(
+                accounts = accounts,
+                selectedAccountId = uiState.selectedAccountId,
+                onAccountSelected = viewModel::selectAccount
+            )
+
+            // 5. Category Dropdown
             CategoryDropdown(
                 categories = rootCategories,
                 selectedCategoryId = if (uiState.showSubcategorySelector) {
@@ -125,7 +143,7 @@ fun TransactionScreen(
                 }
             )
 
-            // 4. Subcategory Dropdown (conditional - only shown when parent has subcategories)
+            // 6. Subcategory Dropdown (conditional - only shown when parent has subcategories)
             if (uiState.showSubcategorySelector && availableSubcategories.isNotEmpty()) {
                 SubcategoryDropdown(
                     subcategories = availableSubcategories,
@@ -134,26 +152,18 @@ fun TransactionScreen(
                 )
             }
 
-            // 5. Date Selector
-            DateSelector(
-                selectedDate = uiState.selectedDate,
-                onClick = { showDatePicker = true }
-            )
-
-            // 6. Account Selector (optional)
-            AccountSelector(
-                accounts = accounts,
-                selectedAccountId = uiState.selectedAccountId,
-                onAccountSelected = viewModel::selectAccount
-            )
-
             // 7. Note Input (optional)
             OutlinedTextField(
                 value = uiState.note,
                 onValueChange = viewModel::updateNote,
                 label = { Text("Note (optional)") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
+                //singleLine = true,
+                minLines = 3,
+                maxLines = 5,
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Default
+                ),
                 leadingIcon = {
                     Icon(Icons.Default.Notes, contentDescription = null)
                 }

@@ -44,10 +44,13 @@ class ExportUseCase @Inject constructor(
                 val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
                 expenses.forEach { expense ->
+                    val categoryName = expense.categoryId?.let { categoriesMap[it]?.name } ?: "Uncategorized"
+                    val subcategoryName = expense.subcategoryId?.let { categoriesMap[it]?.name }
+                    val fullCategoryName = if (subcategoryName != null) "$categoryName / $subcategoryName" else categoryName
                     csvPrinter.printRecord(
                         expense.date.format(dateFormatter),
                         expense.type.name,
-                        expense.categoryId?.let { categoriesMap[it]?.name } ?: "Uncategorized",
+                        fullCategoryName,
                         expense.amount,
                         expense.note
                     )
@@ -106,9 +109,12 @@ class ExportUseCase @Inject constructor(
             val dateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy")
 
             expenses.forEach { expense ->
+                val categoryName = expense.categoryId?.let { categoriesMap[it]?.name } ?: "Uncategorized"
+                val subcategoryName = expense.subcategoryId?.let { categoriesMap[it]?.name }
+                val fullCategoryName = if (subcategoryName != null) "$categoryName / $subcategoryName" else categoryName
                 table.addCell(expense.date.format(dateFormatter))
                 table.addCell(expense.type.name)
-                table.addCell(expense.categoryId?.let { categoriesMap[it]?.name } ?: "Uncategorized")
+                table.addCell(fullCategoryName)
                 table.addCell("$${String.format("%.2f", expense.amount)}")
                 table.addCell(expense.note)
             }

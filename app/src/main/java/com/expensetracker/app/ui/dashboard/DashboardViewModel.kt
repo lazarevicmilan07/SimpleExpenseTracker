@@ -62,19 +62,27 @@ class DashboardViewModel @Inject constructor(
             combine(
                 _selectedMonth,
                 categoryRepository.getAllCategories(),
+                accountRepository.getAllAccounts(),
                 _selectedMonth.flatMapLatest { month ->
                     expenseRepository.getExpensesByMonth(month.year, month.monthValue)
                 }
-            ) { month, categories, expenses ->
-                Triple(month, categories, expenses)
-            }.collect { (month, categories, expenses) ->
-                updateUiState(categories, expenses)
+            ) { month, categories, accounts, expenses ->
+                arrayOf(month, categories, accounts, expenses)
+            }.collect { data ->
+                @Suppress("UNCHECKED_CAST")
+                val categories = data[1] as List<Category>
+                @Suppress("UNCHECKED_CAST")
+                val accounts = data[2] as List<com.expensetracker.app.domain.model.Account>
+                @Suppress("UNCHECKED_CAST")
+                val expenses = data[3] as List<com.expensetracker.app.domain.model.Expense>
+                updateUiState(categories, accounts, expenses)
             }
         }
     }
 
-    private fun updateUiState(categories: List<Category>, expenses: List<com.expensetracker.app.domain.model.Expense>) {
+    private fun updateUiState(categories: List<Category>, accounts: List<com.expensetracker.app.domain.model.Account>, expenses: List<com.expensetracker.app.domain.model.Expense>) {
         val categoriesMap = categories.associateBy { it.id }
+        val accountsMap = accounts.associateBy { it.id }
 
         // Calculate totals from the current expenses list (reactive)
         val totalIncome = expenses
@@ -103,7 +111,9 @@ class DashboardViewModel @Inject constructor(
         val expensesWithCategory = expenses.map { expense ->
             ExpenseWithCategory(
                 expense = expense,
-                category = expense.categoryId?.let { categoriesMap[it] }
+                category = expense.categoryId?.let { categoriesMap[it] },
+                subcategory = expense.subcategoryId?.let { categoriesMap[it] },
+                account = expense.accountId?.let { accountsMap[it] }
             )
         }
 

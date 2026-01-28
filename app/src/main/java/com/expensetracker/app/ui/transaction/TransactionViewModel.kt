@@ -79,12 +79,23 @@ class TransactionViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     amount = expense.amount.toString(),
                     note = expense.note,
-                    selectedCategoryId = expense.categoryId,
+                    selectedCategoryId = expense.subcategoryId ?: expense.categoryId,
+                    selectedParentCategoryId = expense.categoryId,
                     selectedAccountId = expense.accountId,
                     transactionType = expense.type,
                     selectedDate = expense.date,
                     isEditing = true
                 )
+                // If subcategoryId is set, load subcategories and show selector
+                if (expense.subcategoryId != null && expense.categoryId != null) {
+                    _selectedParentCategoryId.value = expense.categoryId
+                    categoryRepository.getSubcategories(expense.categoryId).collect { subcategories ->
+                        _availableSubcategories.value = subcategories
+                        if (subcategories.isNotEmpty()) {
+                            _uiState.value = _uiState.value.copy(showSubcategorySelector = true)
+                        }
+                    }
+                }
             }
         }
     }
@@ -130,8 +141,7 @@ class TransactionViewModel @Inject constructor(
 
     fun selectSubcategory(subcategoryId: Long) {
         _uiState.value = _uiState.value.copy(
-            selectedCategoryId = subcategoryId,
-            showSubcategorySelector = false
+            selectedCategoryId = subcategoryId
         )
     }
 
@@ -177,11 +187,18 @@ class TransactionViewModel @Inject constructor(
                 return@launch
             }
 
+            // When a subcategory is selected, parentCategoryId is the root category
+            // and selectedCategoryId is the subcategory. Otherwise both point to the same category.
+            val parentId = state.selectedParentCategoryId
+            val childId = state.selectedCategoryId
+            val hasSubcategory = parentId != null && childId != null && parentId != childId
+
             val expense = Expense(
                 id = expenseId ?: 0,
                 amount = amount,
                 note = state.note,
-                categoryId = state.selectedCategoryId,
+                categoryId = parentId ?: childId,
+                subcategoryId = if (hasSubcategory) childId else null,
                 accountId = state.selectedAccountId,
                 type = state.transactionType,
                 date = state.selectedDate

@@ -37,6 +37,7 @@ data class ExpenseEntity(
     val accountId: Long?,
     val type: TransactionType,
     val date: Long,
+    val subcategoryId: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
 
