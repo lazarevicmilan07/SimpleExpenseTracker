@@ -23,11 +23,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -42,7 +42,6 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Currency
 import java.util.Locale
-import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +79,7 @@ fun DashboardScreen(
             FloatingActionButton(
                 onClick = onAddTransaction,
                 modifier = Modifier.padding(bottom = 80.dp),
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.secondary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Transaction")
             }
@@ -96,7 +95,6 @@ fun DashboardScreen(
                 CircularProgressIndicator()
             }
         } else {
-            // Interactive swipe gesture for month navigation
             val swipeThreshold = 100f
             val dragOffset = remember { Animatable(0f) }
             val coroutineScope = rememberCoroutineScope()
@@ -111,27 +109,28 @@ fun DashboardScreen(
                                 coroutineScope.launch {
                                     val currentOffset = dragOffset.value
                                     if (currentOffset > swipeThreshold) {
-                                        // Animate out to the right, then change month
+                                        // Swipe right → previous month
                                         dragOffset.animateTo(
                                             targetValue = size.width.toFloat(),
                                             animationSpec = tween(150)
                                         )
                                         viewModel.previousMonth()
-                                        dragOffset.snapTo(0f)
+                                        // Slide in from the left
+                                        dragOffset.snapTo(-size.width.toFloat())
+                                        dragOffset.animateTo(0f, animationSpec = tween(200))
                                     } else if (currentOffset < -swipeThreshold && selectedMonth < YearMonth.now()) {
-                                        // Animate out to the left, then change month
+                                        // Swipe left → next month
                                         dragOffset.animateTo(
                                             targetValue = -size.width.toFloat(),
                                             animationSpec = tween(150)
                                         )
                                         viewModel.nextMonth()
-                                        dragOffset.snapTo(0f)
+                                        // Slide in from the right
+                                        dragOffset.snapTo(size.width.toFloat())
+                                        dragOffset.animateTo(0f, animationSpec = tween(200))
                                     } else {
-                                        // Snap back to center
-                                        dragOffset.animateTo(
-                                            targetValue = 0f,
-                                            animationSpec = tween(200)
-                                        )
+                                        // Snap back
+                                        dragOffset.animateTo(0f, animationSpec = tween(200))
                                     }
                                 }
                             },
@@ -142,10 +141,8 @@ fun DashboardScreen(
                             },
                             onHorizontalDrag = { _, dragAmount ->
                                 coroutineScope.launch {
-                                    // Apply resistance when trying to go past current month
                                     val newOffset = dragOffset.value + dragAmount
                                     val resistedOffset = if (selectedMonth >= YearMonth.now() && newOffset < 0) {
-                                        // Apply resistance when swiping left at current month
                                         dragOffset.value + dragAmount * 0.3f
                                     } else {
                                         newOffset
@@ -167,7 +164,7 @@ fun DashboardScreen(
                     )
                 }
 
-                // Month content with interactive drag
+                // Content with interactive drag offset
                 item {
                     Column(
                         modifier = Modifier.offset { IntOffset(dragOffset.value.roundToInt(), 0) },
@@ -530,7 +527,9 @@ fun CompactTransactionItem(
                 text = "${if (isExpense) "-" else "+"}${formatCurrency(transaction.expense.amount, currency)}",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
-                color = amountColor
+                color = amountColor,
+                modifier = Modifier.widthIn(min = 70.dp),
+                textAlign = TextAlign.End
             )
         }
     }

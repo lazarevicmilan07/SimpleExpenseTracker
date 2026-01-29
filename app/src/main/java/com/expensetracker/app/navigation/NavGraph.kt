@@ -54,7 +54,7 @@ fun NavGraph(
                     navController.navigate(Screen.AddTransaction.route)
                 },
                 onViewTransaction = { expenseId ->
-                    navController.navigate(Screen.TransactionDetail.createRoute(expenseId))
+                    navController.navigate(Screen.EditTransaction.createRoute(expenseId))
                 },
                 onNavigateToCategories = {
                     navController.navigate(Screen.Categories.route)

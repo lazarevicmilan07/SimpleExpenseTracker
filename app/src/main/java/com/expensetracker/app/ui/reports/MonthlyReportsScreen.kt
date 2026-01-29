@@ -48,13 +48,6 @@ fun MonthlyReportsScreen(
     val swipeThreshold = 100f
     var totalDragAmount by remember { mutableFloatStateOf(0f) }
 
-    var previousMonth by remember { mutableStateOf(selectedMonth) }
-    val isForward = selectedMonth > previousMonth
-
-    LaunchedEffect(selectedMonth) {
-        previousMonth = selectedMonth
-    }
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -91,9 +84,9 @@ fun MonthlyReportsScreen(
         // Animated content
         item {
             AnimatedContent(
-                targetState = Pair(selectedMonth, uiState),
+                targetState = selectedMonth,
                 transitionSpec = {
-                    if (isForward) {
+                    if (targetState > initialState) {
                         (slideInHorizontally { width -> width } + fadeIn()) togetherWith
                                 (slideOutHorizontally { width -> -width } + fadeOut())
                     } else {
@@ -102,40 +95,40 @@ fun MonthlyReportsScreen(
                     }
                 },
                 label = "monthly_reports_transition"
-            ) { (_, state) ->
+            ) { _ ->
                 Column(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Summary Card
                     ReportsSummaryCard(
-                        income = state.totalIncome,
-                        expense = state.totalExpense,
-                        balance = state.balance,
+                        income = uiState.totalIncome,
+                        expense = uiState.totalExpense,
+                        balance = uiState.balance,
                         currency = currency
                     )
 
                     // Expense Pie Chart
-                    if (state.expenseBreakdown.isNotEmpty()) {
+                    if (uiState.expenseBreakdown.isNotEmpty()) {
                         BreakdownCard(
                             title = "Expenses by Category",
-                            breakdown = state.expenseBreakdown,
+                            breakdown = uiState.expenseBreakdown,
                             currency = currency,
                             color = ExpenseRed
                         )
                     }
 
                     // Income Pie Chart
-                    if (state.incomeBreakdown.isNotEmpty()) {
+                    if (uiState.incomeBreakdown.isNotEmpty()) {
                         BreakdownCard(
                             title = "Income by Category",
-                            breakdown = state.incomeBreakdown,
+                            breakdown = uiState.incomeBreakdown,
                             currency = currency,
                             color = IncomeGreen
                         )
                     }
 
                     // Empty state
-                    if (state.expenseBreakdown.isEmpty() && state.incomeBreakdown.isEmpty() && !state.isLoading) {
+                    if (uiState.expenseBreakdown.isEmpty() && uiState.incomeBreakdown.isEmpty() && !uiState.isLoading) {
                         EmptyReportsState()
                     }
                 }

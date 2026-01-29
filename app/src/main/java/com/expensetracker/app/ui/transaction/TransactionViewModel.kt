@@ -213,6 +213,14 @@ class TransactionViewModel @Inject constructor(
             _events.emit(TransactionEvent.TransactionSaved)
         }
     }
+
+    fun deleteTransaction() {
+        val id = expenseId ?: return
+        viewModelScope.launch {
+            expenseRepository.deleteExpenseById(id)
+            _events.emit(TransactionEvent.TransactionDeleted)
+        }
+    }
 }
 
 data class TransactionUiState(
@@ -229,5 +237,6 @@ data class TransactionUiState(
 
 sealed class TransactionEvent {
     data object TransactionSaved : TransactionEvent()
+    data object TransactionDeleted : TransactionEvent()
     data class ShowError(val message: String) : TransactionEvent()
 }

@@ -1,6 +1,13 @@
 package com.expensetracker.app.ui.reports
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -13,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,8 +42,28 @@ fun YearlyReportsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val selectedYear by viewModel.selectedYear.collectAsState()
 
+    val swipeThreshold = 100f
+    var totalDragAmount by remember { mutableFloatStateOf(0f) }
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (totalDragAmount > swipeThreshold) {
+                            viewModel.previousYear()
+                        } else if (totalDragAmount < -swipeThreshold && selectedYear < Year.now().value) {
+                            viewModel.nextYear()
+                        }
+                        totalDragAmount = 0f
+                    },
+                    onDragCancel = { totalDragAmount = 0f },
+                    onHorizontalDrag = { _, dragAmount ->
+                        totalDragAmount += dragAmount
+                    }
+                )
+            },
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -48,74 +76,83 @@ fun YearlyReportsScreen(
             )
         }
 
-        // Summary Card
+        // Animated content transition on year change
         item {
-            YearlySummaryCard(
-                income = uiState.totalIncome,
-                expense = uiState.totalExpense,
-                balance = uiState.balance,
-                currency = currency
-            )
-        }
+            AnimatedContent(
+                targetState = selectedYear,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally { width -> width } + fadeIn()) togetherWith
+                                (slideOutHorizontally { width -> -width } + fadeOut())
+                    } else {
+                        (slideInHorizontally { width -> -width } + fadeIn()) togetherWith
+                                (slideOutHorizontally { width -> width } + fadeOut())
+                    }
+                },
+                label = "yearly_reports_transition"
+            ) { _ ->
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Summary Card
+                    YearlySummaryCard(
+                        income = uiState.totalIncome,
+                        expense = uiState.totalExpense,
+                        balance = uiState.balance,
+                        currency = currency
+                    )
 
-        // Bar Chart - Monthly Overview
-        if (uiState.monthlyData.isNotEmpty()) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Monthly Overview",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        MonthlyBarChart(
-                            monthlyData = uiState.monthlyData,
-                            modifier = Modifier.fillMaxWidth()
+                    // Bar Chart - Monthly Overview
+                    if (uiState.monthlyData.isNotEmpty()) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Monthly Overview",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                MonthlyBarChart(
+                                    monthlyData = uiState.monthlyData,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+
+                    // Expense Pie Chart
+                    if (uiState.expenseBreakdown.isNotEmpty()) {
+                        BreakdownCard(
+                            title = "Yearly Expenses by Category",
+                            breakdown = uiState.expenseBreakdown,
+                            currency = currency,
+                            color = ExpenseRed
                         )
                     }
+
+                    // Income Pie Chart
+                    if (uiState.incomeBreakdown.isNotEmpty()) {
+                        BreakdownCard(
+                            title = "Yearly Income by Category",
+                            breakdown = uiState.incomeBreakdown,
+                            currency = currency,
+                            color = IncomeGreen
+                        )
+                    }
+
+                    // Monthly Breakdown List
+                    if (uiState.monthlyData.any { it.income > 0 || it.expense > 0 }) {
+                        MonthlyBreakdownCard(
+                            monthlyData = uiState.monthlyData,
+                            currency = currency
+                        )
+                    }
+
+                    // Empty state
+                    if (uiState.monthlyData.all { it.income == 0.0 && it.expense == 0.0 } && !uiState.isLoading) {
+                        EmptyYearlyReportsState()
+                    }
                 }
-            }
-        }
-
-        // Expense Pie Chart
-        if (uiState.expenseBreakdown.isNotEmpty()) {
-            item {
-                BreakdownCard(
-                    title = "Yearly Expenses by Category",
-                    breakdown = uiState.expenseBreakdown,
-                    currency = currency,
-                    color = ExpenseRed
-                )
-            }
-        }
-
-        // Income Pie Chart
-        if (uiState.incomeBreakdown.isNotEmpty()) {
-            item {
-                BreakdownCard(
-                    title = "Yearly Income by Category",
-                    breakdown = uiState.incomeBreakdown,
-                    currency = currency,
-                    color = IncomeGreen
-                )
-            }
-        }
-
-        // Monthly Breakdown List
-        if (uiState.monthlyData.any { it.income > 0 || it.expense > 0 }) {
-            item {
-                MonthlyBreakdownCard(
-                    monthlyData = uiState.monthlyData,
-                    currency = currency
-                )
-            }
-        }
-
-        // Empty state
-        if (uiState.monthlyData.all { it.income == 0.0 && it.expense == 0.0 } && !uiState.isLoading) {
-            item {
-                EmptyYearlyReportsState()
             }
         }
     }

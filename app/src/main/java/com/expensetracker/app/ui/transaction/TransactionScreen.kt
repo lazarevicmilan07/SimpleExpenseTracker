@@ -64,6 +64,10 @@ fun TransactionScreen(
                     Toast.makeText(context, "Transaction saved", Toast.LENGTH_SHORT).show()
                     onNavigateBack()
                 }
+                is TransactionEvent.TransactionDeleted -> {
+                    Toast.makeText(context, "Transaction deleted", Toast.LENGTH_SHORT).show()
+                    onNavigateBack()
+                }
                 is TransactionEvent.ShowError -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 }
@@ -83,12 +87,30 @@ fun TransactionScreen(
                     }
                 },
                 actions = {
+                    if (uiState.isEditing) {
+                        IconButton(onClick = { viewModel.deleteTransaction() }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    IconButton(onClick = { viewModel.saveTransaction() }) {
+                        Icon(
+                            Icons.Default.Save,
+                            contentDescription = "Save",
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    /*
                     TextButton(
                         onClick = { viewModel.saveTransaction() },
                         enabled = uiState.amount.isNotBlank()
                     ) {
                         Text("Save", fontWeight = FontWeight.SemiBold)
                     }
+                    */
                 }
             )
         }
