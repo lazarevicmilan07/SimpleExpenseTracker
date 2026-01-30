@@ -103,14 +103,6 @@ fun TransactionScreen(
                             tint = MaterialTheme.colorScheme.secondary
                         )
                     }
-                    /*
-                    TextButton(
-                        onClick = { viewModel.saveTransaction() },
-                        enabled = uiState.amount.isNotBlank()
-                    ) {
-                        Text("Save", fontWeight = FontWeight.SemiBold)
-                    }
-                    */
                 }
             )
         }

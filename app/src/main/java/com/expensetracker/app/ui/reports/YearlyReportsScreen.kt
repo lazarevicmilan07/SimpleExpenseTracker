@@ -1,11 +1,7 @@
 package com.expensetracker.app.ui.reports
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -22,7 +18,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.expensetracker.app.ui.components.MonthlyBarChart
 import com.expensetracker.app.ui.theme.ExpenseRed
@@ -43,24 +42,45 @@ fun YearlyReportsScreen(
     val selectedYear by viewModel.selectedYear.collectAsState()
 
     val swipeThreshold = 100f
-    var totalDragAmount by remember { mutableFloatStateOf(0f) }
+    val dragOffset = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(selectedYear) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
-                        if (totalDragAmount > swipeThreshold) {
-                            viewModel.previousYear()
-                        } else if (totalDragAmount < -swipeThreshold && selectedYear < Year.now().value) {
-                            viewModel.nextYear()
+                        coroutineScope.launch {
+                            val currentOffset = dragOffset.value
+                            if (currentOffset > swipeThreshold) {
+                                dragOffset.animateTo(size.width.toFloat(), tween(150))
+                                viewModel.previousYear()
+                                dragOffset.snapTo(-size.width.toFloat())
+                                dragOffset.animateTo(0f, tween(200))
+                            } else if (currentOffset < -swipeThreshold && selectedYear < Year.now().value) {
+                                dragOffset.animateTo(-size.width.toFloat(), tween(150))
+                                viewModel.nextYear()
+                                dragOffset.snapTo(size.width.toFloat())
+                                dragOffset.animateTo(0f, tween(200))
+                            } else {
+                                dragOffset.animateTo(0f, tween(200))
+                            }
                         }
-                        totalDragAmount = 0f
                     },
-                    onDragCancel = { totalDragAmount = 0f },
+                    onDragCancel = {
+                        coroutineScope.launch { dragOffset.animateTo(0f, tween(200)) }
+                    },
                     onHorizontalDrag = { _, dragAmount ->
-                        totalDragAmount += dragAmount
+                        coroutineScope.launch {
+                            val newOffset = dragOffset.value + dragAmount
+                            val resistedOffset = if (selectedYear >= Year.now().value && newOffset < 0) {
+                                dragOffset.value + dragAmount * 0.3f
+                            } else {
+                                newOffset
+                            }
+                            dragOffset.snapTo(resistedOffset)
+                        }
                     }
                 )
             },
@@ -76,82 +96,69 @@ fun YearlyReportsScreen(
             )
         }
 
-        // Animated content transition on year change
+        // Content with interactive drag offset
         item {
-            AnimatedContent(
-                targetState = selectedYear,
-                transitionSpec = {
-                    if (targetState > initialState) {
-                        (slideInHorizontally { width -> width } + fadeIn()) togetherWith
-                                (slideOutHorizontally { width -> -width } + fadeOut())
-                    } else {
-                        (slideInHorizontally { width -> -width } + fadeIn()) togetherWith
-                                (slideOutHorizontally { width -> width } + fadeOut())
-                    }
-                },
-                label = "yearly_reports_transition"
-            ) { _ ->
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Summary Card
-                    YearlySummaryCard(
-                        income = uiState.totalIncome,
-                        expense = uiState.totalExpense,
-                        balance = uiState.balance,
-                        currency = currency
-                    )
+            Column(
+                modifier = Modifier.offset { IntOffset(dragOffset.value.roundToInt(), 0) },
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Summary Card
+                YearlySummaryCard(
+                    income = uiState.totalIncome,
+                    expense = uiState.totalExpense,
+                    balance = uiState.balance,
+                    currency = currency
+                )
 
-                    // Bar Chart - Monthly Overview
-                    if (uiState.monthlyData.isNotEmpty()) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Monthly Overview",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                MonthlyBarChart(
-                                    monthlyData = uiState.monthlyData,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                // Bar Chart - Monthly Overview
+                if (uiState.monthlyData.isNotEmpty()) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Monthly Overview",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            MonthlyBarChart(
+                                monthlyData = uiState.monthlyData,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
+                }
 
-                    // Expense Pie Chart
-                    if (uiState.expenseBreakdown.isNotEmpty()) {
-                        BreakdownCard(
-                            title = "Yearly Expenses by Category",
-                            breakdown = uiState.expenseBreakdown,
-                            currency = currency,
-                            color = ExpenseRed
-                        )
-                    }
+                // Expense Pie Chart
+                if (uiState.expenseBreakdown.isNotEmpty()) {
+                    BreakdownCard(
+                        title = "Yearly Expenses by Category",
+                        breakdown = uiState.expenseBreakdown,
+                        currency = currency,
+                        color = ExpenseRed
+                    )
+                }
 
-                    // Income Pie Chart
-                    if (uiState.incomeBreakdown.isNotEmpty()) {
-                        BreakdownCard(
-                            title = "Yearly Income by Category",
-                            breakdown = uiState.incomeBreakdown,
-                            currency = currency,
-                            color = IncomeGreen
-                        )
-                    }
+                // Income Pie Chart
+                if (uiState.incomeBreakdown.isNotEmpty()) {
+                    BreakdownCard(
+                        title = "Yearly Income by Category",
+                        breakdown = uiState.incomeBreakdown,
+                        currency = currency,
+                        color = IncomeGreen
+                    )
+                }
 
-                    // Monthly Breakdown List
-                    if (uiState.monthlyData.any { it.income > 0 || it.expense > 0 }) {
-                        MonthlyBreakdownCard(
-                            monthlyData = uiState.monthlyData,
-                            currency = currency
-                        )
-                    }
+                // Monthly Breakdown List
+                if (uiState.monthlyData.any { it.income > 0 || it.expense > 0 }) {
+                    MonthlyBreakdownCard(
+                        monthlyData = uiState.monthlyData,
+                        currency = currency
+                    )
+                }
 
-                    // Empty state
-                    if (uiState.monthlyData.all { it.income == 0.0 && it.expense == 0.0 } && !uiState.isLoading) {
-                        EmptyYearlyReportsState()
-                    }
+                // Empty state
+                if (uiState.monthlyData.all { it.income == 0.0 && it.expense == 0.0 } && !uiState.isLoading) {
+                    EmptyYearlyReportsState()
                 }
             }
         }

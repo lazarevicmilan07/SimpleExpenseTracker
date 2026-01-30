@@ -43,7 +43,7 @@ interface ExpenseDao {
     fun getCategoryTotalsFlow(type: TransactionType, startDate: Long, endDate: Long): Flow<List<CategoryTotal>>
 
     @Query("""
-        SELECT strftime('%m', date / 1000, 'unixepoch') as month,
+        SELECT strftime('%m', date / 1000, 'unixepoch', 'localtime') as month,
                type,
                SUM(amount) as total
         FROM expenses
