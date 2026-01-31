@@ -419,16 +419,17 @@ fun ExpenseBreakdownCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
-                            .clip(CircleShape)
+                            .width(4.dp)
+                            .height(20.dp)
+                            .clip(RoundedCornerShape(2.dp))
                             .background(item.category?.color ?: Color.Gray)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = item.category?.name ?: "Uncategorized",
                         style = MaterialTheme.typography.bodyMedium,
@@ -437,13 +438,13 @@ fun ExpenseBreakdownCard(
                     Text(
                         text = "${item.percentage.toInt()}%",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = formatCurrency(item.amount, currency),
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -459,8 +460,8 @@ fun SimplePieChart(
 ) {
     val total = breakdown.sumOf { it.amount }.toFloat()
     var selectedIndex by remember { mutableIntStateOf(-1) }
+    val gapDegrees = if (breakdown.size > 1) 2.5f else 0f
 
-    // Build angle ranges
     val sliceAngles = remember(breakdown, total) {
         var cumulative = -90f
         breakdown.map { item ->
@@ -481,8 +482,9 @@ fun SimplePieChart(
                         val dx = offset.x - cx
                         val dy = offset.y - cy
                         val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-                        val r = minOf(size.width, size.height) / 2f * 0.8f
-                        if (dist <= r) {
+                        val outerR = minOf(size.width, size.height) / 2f * 0.85f
+                        val innerR = outerR * 0.55f
+                        if (dist in innerR..outerR) {
                             var angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
                             if (angle < -90f) angle += 360f
                             val tapped = sliceAngles.indexOfFirst { (start, sweep) ->
@@ -496,21 +498,29 @@ fun SimplePieChart(
                 }
             ) {
                 val canvasSize = size.minDimension
-                val radius = canvasSize / 2f * 0.8f
+                val outerRadius = canvasSize / 2f * 0.85f
+                val strokeWidth = outerRadius * 0.45f
+                val arcRadius = outerRadius - strokeWidth / 2f
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
 
                 sliceAngles.forEachIndexed { index, (start, sweep) ->
                     val sliceColor = breakdown[index].category?.color ?: Color.Gray
                     val isSelected = index == selectedIndex
-                    val sliceRadius = if (isSelected) radius * 1.06f else radius
+                    val drawStroke = if (isSelected) strokeWidth * 1.15f else strokeWidth
+                    val adjustedSweep = (sweep - gapDegrees).coerceAtLeast(0.5f)
+                    val adjustedStart = start + gapDegrees / 2f
                     drawArc(
-                        color = sliceColor,
-                        startAngle = start,
-                        sweepAngle = sweep,
-                        useCenter = true,
-                        topLeft = Offset(centerX - sliceRadius, centerY - sliceRadius),
-                        size = Size(sliceRadius * 2f, sliceRadius * 2f)
+                        color = if (selectedIndex != -1 && !isSelected) sliceColor.copy(alpha = 0.4f) else sliceColor,
+                        startAngle = adjustedStart,
+                        sweepAngle = adjustedSweep,
+                        useCenter = false,
+                        topLeft = Offset(centerX - arcRadius, centerY - arcRadius),
+                        size = Size(arcRadius * 2f, arcRadius * 2f),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = drawStroke,
+                            cap = androidx.compose.ui.graphics.StrokeCap.Butt
+                        )
                     )
                 }
             }

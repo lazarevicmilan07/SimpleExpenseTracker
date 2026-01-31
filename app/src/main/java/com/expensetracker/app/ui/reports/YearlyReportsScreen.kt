@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -339,6 +340,8 @@ fun MonthlyBreakdownCard(
     monthlyData: List<MonthData>,
     currency: String
 ) {
+    val maxAmount = monthlyData.maxOfOrNull { maxOf(it.income, it.expense) } ?: 1.0
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -347,56 +350,108 @@ fun MonthlyBreakdownCard(
                 fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             monthlyData.forEachIndexed { index, data ->
                 if (data.income > 0 || data.expense > 0) {
                     val monthName = Month.of(index + 1).getDisplayName(TextStyle.SHORT, Locale.getDefault())
-                    Row(
+                    val balance = data.income - data.expense
+                    val incomeFraction = if (maxAmount > 0) (data.income / maxAmount).toFloat() else 0f
+                    val expenseFraction = if (maxAmount > 0) (data.expense / maxAmount).toFloat() else 0f
+
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(vertical = 6.dp)
                     ) {
-                        Text(
-                            text = monthName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.width(48.dp)
-                        )
+                        // Month name and balance
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = monthName,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = formatCurrency(balance, currency),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (balance >= 0) IncomeGreen else ExpenseRed
+                            )
+                        }
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Income row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Text(
-                                    text = formatCurrency(data.income, currency),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = IncomeGreen
-                                )
-                                Text(
-                                    text = formatCurrency(data.expense, currency),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = ExpenseRed
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(incomeFraction.coerceAtLeast(0.02f))
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(IncomeGreen)
                                 )
                             }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            val balance = data.income - data.expense
+                            Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Balance: ${formatCurrency(balance, currency)}",
+                                text = formatCurrency(data.income, currency),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (balance >= 0) IncomeGreen else ExpenseRed
+                                color = IncomeGreen,
+                                modifier = Modifier.width(80.dp),
+                                textAlign = TextAlign.End
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Expense row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(expenseFraction.coerceAtLeast(0.02f))
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(ExpenseRed)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = formatCurrency(data.expense, currency),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = ExpenseRed,
+                                modifier = Modifier.width(80.dp),
+                                textAlign = TextAlign.End
                             )
                         }
                     }
 
                     if (index < monthlyData.lastIndex && (monthlyData[index + 1].income > 0 || monthlyData[index + 1].expense > 0)) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
+                            modifier = Modifier.padding(vertical = 6.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                         )
                     }
                 }
