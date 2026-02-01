@@ -119,7 +119,7 @@ fun DashboardScreen(
                                         // Slide in from the left
                                         dragOffset.snapTo(-size.width.toFloat())
                                         dragOffset.animateTo(0f, animationSpec = tween(200))
-                                    } else if (currentOffset < -swipeThreshold && selectedMonth < YearMonth.now()) {
+                                    } else if (currentOffset < -swipeThreshold) {
                                         // Swipe left → next month
                                         dragOffset.animateTo(
                                             targetValue = -size.width.toFloat(),
@@ -142,13 +142,7 @@ fun DashboardScreen(
                             },
                             onHorizontalDrag = { _, dragAmount ->
                                 coroutineScope.launch {
-                                    val newOffset = dragOffset.value + dragAmount
-                                    val resistedOffset = if (selectedMonth >= YearMonth.now() && newOffset < 0) {
-                                        dragOffset.value + dragAmount * 0.3f
-                                    } else {
-                                        newOffset
-                                    }
-                                    dragOffset.snapTo(resistedOffset)
+                                    dragOffset.snapTo(dragOffset.value + dragAmount)
                                 }
                             }
                         )
@@ -245,7 +239,7 @@ fun MonthSelector(
 
         IconButton(
             onClick = onNextMonth,
-            enabled = selectedMonth < YearMonth.now()
+            enabled = true
         ) {
             Icon(Icons.Default.ChevronRight, contentDescription = "Next month")
         }

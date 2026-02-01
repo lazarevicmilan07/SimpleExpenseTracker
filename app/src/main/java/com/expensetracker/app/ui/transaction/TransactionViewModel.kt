@@ -186,6 +186,14 @@ class TransactionViewModel @Inject constructor(
     }
 
     fun saveTransaction() {
+        doSave(andContinue = false)
+    }
+
+    fun saveAndContinue() {
+        doSave(andContinue = true)
+    }
+
+    private fun doSave(andContinue: Boolean) {
         viewModelScope.launch {
             val state = _uiState.value
             val amount = state.amount.toDoubleOrNull()
@@ -217,8 +225,6 @@ class TransactionViewModel @Inject constructor(
                 return@launch
             }
 
-            // When a subcategory is selected, parentCategoryId is the root category
-            // and selectedCategoryId is the subcategory. Otherwise both point to the same category.
             val hasSubcategory = parentId != null && childId != null && parentId != childId
 
             val expense = Expense(
@@ -238,7 +244,19 @@ class TransactionViewModel @Inject constructor(
                 expenseRepository.insertExpense(expense)
             }
 
-            _events.emit(TransactionEvent.TransactionSaved)
+            if (andContinue) {
+                // Reset form but keep type, date, and account for convenience
+                _uiState.value = _uiState.value.copy(
+                    amount = "",
+                    note = "",
+                    selectedCategoryId = null,
+                    selectedParentCategoryId = null,
+                    showSubcategorySelector = false
+                )
+                _events.emit(TransactionEvent.TransactionSavedAndContinue)
+            } else {
+                _events.emit(TransactionEvent.TransactionSaved)
+            }
         }
     }
 
@@ -265,6 +283,7 @@ data class TransactionUiState(
 
 sealed class TransactionEvent {
     data object TransactionSaved : TransactionEvent()
+    data object TransactionSavedAndContinue : TransactionEvent()
     data object TransactionDeleted : TransactionEvent()
     data class ShowError(val message: String) : TransactionEvent()
 }

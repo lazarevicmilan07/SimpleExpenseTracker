@@ -69,7 +69,7 @@ fun YearlyReportsScreen(
                                 viewModel.previousYear()
                                 dragOffset.snapTo(-size.width.toFloat())
                                 dragOffset.animateTo(0f, tween(200))
-                            } else if (currentOffset < -swipeThreshold && selectedYear < Year.now().value) {
+                            } else if (currentOffset < -swipeThreshold) {
                                 dragOffset.animateTo(-size.width.toFloat(), tween(150))
                                 viewModel.nextYear()
                                 dragOffset.snapTo(size.width.toFloat())
@@ -84,13 +84,7 @@ fun YearlyReportsScreen(
                     },
                     onHorizontalDrag = { _, dragAmount ->
                         coroutineScope.launch {
-                            val newOffset = dragOffset.value + dragAmount
-                            val resistedOffset = if (selectedYear >= Year.now().value && newOffset < 0) {
-                                dragOffset.value + dragAmount * 0.3f
-                            } else {
-                                newOffset
-                            }
-                            dragOffset.snapTo(resistedOffset)
+                            dragOffset.snapTo(dragOffset.value + dragAmount)
                         }
                     }
                 )
@@ -200,7 +194,7 @@ fun YearSelector(
 
         IconButton(
             onClick = onNextYear,
-            enabled = selectedYear < Year.now().value
+            enabled = true
         ) {
             Icon(Icons.Default.ChevronRight, contentDescription = "Next year")
         }

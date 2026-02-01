@@ -70,6 +70,9 @@ fun TransactionScreen(
                     Toast.makeText(context, "Transaction saved", Toast.LENGTH_SHORT).show()
                     onNavigateBack()
                 }
+                is TransactionEvent.TransactionSavedAndContinue -> {
+                    Toast.makeText(context, "Transaction saved", Toast.LENGTH_SHORT).show()
+                }
                 is TransactionEvent.TransactionDeleted -> {
                     Toast.makeText(context, "Transaction deleted", Toast.LENGTH_SHORT).show()
                     onNavigateBack()
@@ -99,6 +102,15 @@ fun TransactionScreen(
                                 Icons.Default.Delete,
                                 contentDescription = "Delete",
                                 tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    if (!uiState.isEditing) {
+                        IconButton(onClick = { viewModel.saveAndContinue() }) {
+                            Icon(
+                                Icons.Default.PlaylistAdd,
+                                contentDescription = "Save & Continue",
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }

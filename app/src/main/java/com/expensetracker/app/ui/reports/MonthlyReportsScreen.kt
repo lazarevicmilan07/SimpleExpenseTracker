@@ -66,7 +66,7 @@ fun MonthlyReportsScreen(
                                 viewModel.previousMonth()
                                 dragOffset.snapTo(-size.width.toFloat())
                                 dragOffset.animateTo(0f, tween(200))
-                            } else if (currentOffset < -swipeThreshold && selectedMonth < YearMonth.now()) {
+                            } else if (currentOffset < -swipeThreshold) {
                                 dragOffset.animateTo(-size.width.toFloat(), tween(150))
                                 viewModel.nextMonth()
                                 dragOffset.snapTo(size.width.toFloat())
@@ -81,13 +81,7 @@ fun MonthlyReportsScreen(
                     },
                     onHorizontalDrag = { _, dragAmount ->
                         coroutineScope.launch {
-                            val newOffset = dragOffset.value + dragAmount
-                            val resistedOffset = if (selectedMonth >= YearMonth.now() && newOffset < 0) {
-                                dragOffset.value + dragAmount * 0.3f
-                            } else {
-                                newOffset
-                            }
-                            dragOffset.snapTo(resistedOffset)
+                            dragOffset.snapTo(dragOffset.value + dragAmount)
                         }
                     }
                 )
@@ -171,8 +165,7 @@ fun MonthSelector(
         )
 
         IconButton(
-            onClick = onNextMonth,
-            enabled = selectedMonth < YearMonth.now()
+            onClick = onNextMonth
         ) {
             Icon(Icons.Default.ChevronRight, contentDescription = "Next month")
         }
