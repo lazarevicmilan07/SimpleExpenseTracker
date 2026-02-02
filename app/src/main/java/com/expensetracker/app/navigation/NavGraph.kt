@@ -99,7 +99,9 @@ fun NavGraph(
             )
         ) {
             TransactionScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = {
+                    navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+                }
             )
         }
 

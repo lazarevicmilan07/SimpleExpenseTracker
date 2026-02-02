@@ -30,11 +30,14 @@ class TransactionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val expenseId: Long? = savedStateHandle.get<Long>("expenseId")?.takeIf { it != -1L }
-    private val copyFromId: Long? = if (savedStateHandle.get<Boolean>("useToday") != null) expenseId else null
+    private val rawExpenseId: Long? = savedStateHandle.get<Long>("expenseId")?.takeIf { it != -1L }
+    private val copyFromId: Long? = if (savedStateHandle.get<Boolean>("useToday") != null) rawExpenseId else null
     private val useToday: Boolean = savedStateHandle.get<Boolean>("useToday") ?: false
 
-    val expenseIdForCopy: Long? = if (copyFromId == null) expenseId else null
+    // When copying, expenseId must be null so save inserts a new record instead of updating the original
+    private val expenseId: Long? = if (copyFromId != null) null else rawExpenseId
+
+    val expenseIdForCopy: Long? = if (copyFromId == null) rawExpenseId else null
 
     private val _uiState = MutableStateFlow(TransactionUiState())
     val uiState: StateFlow<TransactionUiState> = _uiState.asStateFlow()

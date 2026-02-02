@@ -399,7 +399,7 @@ fun PieChart(
                         val dy = offset.y - cy
                         val dist = kotlin.math.sqrt(dx * dx + dy * dy)
                         val outerR = minOf(size.width, size.height) / 2f * 0.85f
-                        val innerR = outerR * 0.55f
+                        val innerR = outerR * 0.35f
                         if (dist in innerR..outerR) {
                             var angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
                             if (angle < -90f) angle += 360f
@@ -415,7 +415,7 @@ fun PieChart(
             ) {
                 val canvasSize = size.minDimension
                 val outerRadius = canvasSize / 2f * 0.85f
-                val strokeWidth = outerRadius * 0.45f
+                val strokeWidth = outerRadius * 0.6f
                 val arcRadius = outerRadius - strokeWidth / 2f
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f

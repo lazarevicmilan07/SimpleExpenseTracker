@@ -64,6 +64,7 @@ fun TransactionScreen(
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showCopyDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -90,7 +91,10 @@ fun TransactionScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (uiState.isEditing) "Edit Transaction" else "Add Transaction")
+                    Text(
+                        if (uiState.isEditing) "Edit Transaction" else "Add Transaction",
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -108,7 +112,7 @@ fun TransactionScreen(
                         }
                     }
                     if (uiState.isEditing) {
-                        IconButton(onClick = { viewModel.deleteTransaction() }) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Delete",
@@ -252,6 +256,28 @@ fun TransactionScreen(
                 }
             )
         }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            title = { Text("Delete Transaction") },
+            text = { Text("Are you sure you want to delete this transaction?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteTransaction()
+                    showDeleteDialog = false
+                }) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
