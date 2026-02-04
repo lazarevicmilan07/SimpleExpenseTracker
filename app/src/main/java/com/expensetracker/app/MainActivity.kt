@@ -1,9 +1,15 @@
 package com.expensetracker.app
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.os.Bundle
+import android.view.View
+import android.view.animation.AnticipateOvershootInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.animation.doOnEnd
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,8 +53,50 @@ class MainActivity : ComponentActivity() {
     lateinit var preferencesManager: PreferencesManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Modern exit animation: icon zooms up and fades while background slides away
+        splashScreen.setOnExitAnimationListener { splashScreenView ->
+            val iconView = splashScreenView.iconView
+
+            // Icon zoom up animation (creates "diving into app" effect)
+            val iconScaleX = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 1.5f)
+            val iconScaleY = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 1.5f)
+            val iconFade = ObjectAnimator.ofFloat(iconView, View.ALPHA, 1f, 0f)
+
+            // Background slide up and fade
+            val backgroundSlide = ObjectAnimator.ofFloat(
+                splashScreenView.view,
+                View.TRANSLATION_Y,
+                0f,
+                -splashScreenView.view.height.toFloat() * 0.3f
+            )
+            val backgroundFade = ObjectAnimator.ofFloat(splashScreenView.view, View.ALPHA, 1f, 0f)
+
+            // Icon animation set
+            val iconAnimator = AnimatorSet().apply {
+                playTogether(iconScaleX, iconScaleY, iconFade)
+                duration = 400L
+                interpolator = DecelerateInterpolator(1.5f)
+            }
+
+            // Background animation set
+            val backgroundAnimator = AnimatorSet().apply {
+                playTogether(backgroundSlide, backgroundFade)
+                duration = 350L
+                startDelay = 100L
+                interpolator = AnticipateOvershootInterpolator(0.5f)
+            }
+
+            // Play all animations
+            AnimatorSet().apply {
+                playTogether(iconAnimator, backgroundAnimator)
+                doOnEnd { splashScreenView.remove() }
+                start()
+            }
+        }
+
         enableEdgeToEdge()
 
         setContent {
