@@ -10,6 +10,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.expensetracker.app.data.preferences.PreferencesManager
 import com.expensetracker.app.ui.accounts.AccountsScreen
 import com.expensetracker.app.ui.categories.CategoriesScreen
 import com.expensetracker.app.ui.dashboard.DashboardScreen
@@ -44,6 +45,7 @@ sealed class Screen(val route: String) {
 @Composable
 fun NavGraph(
     navController: NavHostController,
+    preferencesManager: PreferencesManager,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -126,7 +128,8 @@ fun NavGraph(
         composable(Screen.Categories.route) {
             CategoriesScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onShowPremium = { navController.navigate(Screen.Premium.route) }
+                onShowPremium = { navController.navigate(Screen.Premium.route) },
+                preferencesManager = preferencesManager
             )
         }
 
@@ -135,14 +138,16 @@ fun NavGraph(
             val currency by dashboardViewModel.currency.collectAsState()
             AccountsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                currency = currency
+                currency = currency,
+                preferencesManager = preferencesManager
             )
         }
 
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onShowPremium = { navController.navigate(Screen.Premium.route) }
+                onShowPremium = { navController.navigate(Screen.Premium.route) },
+                preferencesManager = preferencesManager
             )
         }
 

@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.expensetracker.app.domain.model.Category
+import com.expensetracker.app.data.preferences.PreferencesManager
+import com.expensetracker.app.ui.components.AdBanner
 import com.expensetracker.app.ui.components.AvailableColors
 import com.expensetracker.app.ui.components.AvailableIcons
 import com.expensetracker.app.ui.components.CategoryIcon
@@ -36,6 +38,7 @@ import com.expensetracker.app.ui.components.getIconForName
 fun CategoriesScreen(
     onNavigateBack: () -> Unit,
     onShowPremium: () -> Unit,
+    preferencesManager: PreferencesManager,
     viewModel: CategoriesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -79,6 +82,9 @@ fun CategoriesScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            AdBanner(preferencesManager = preferencesManager)
         }
     ) { paddingValues ->
         LazyColumn(

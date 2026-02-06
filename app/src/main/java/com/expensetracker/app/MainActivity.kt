@@ -13,6 +13,8 @@ import androidx.core.animation.doOnEnd
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -35,7 +37,6 @@ import androidx.navigation.compose.rememberNavController
 import com.expensetracker.app.data.preferences.PreferencesManager
 import com.expensetracker.app.navigation.NavGraph
 import com.expensetracker.app.navigation.Screen
-import com.expensetracker.app.ui.components.AdBanner
 import com.expensetracker.app.ui.theme.ExpenseTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -119,9 +120,10 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        Column {
-                            if (showBottomNav) {
+                        if (showBottomNav) {
+                            Column(modifier = Modifier.navigationBarsPadding()) {
                                 NavigationBar(
+                                    modifier = Modifier.height(56.dp),
                                     windowInsets = WindowInsets(0, 0, 0, 0),
                                     tonalElevation = 0.dp
                                 ) {
@@ -143,12 +145,12 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            AdBanner(preferencesManager = preferencesManager)
                         }
                     }
                 ) { _ ->
                     NavGraph(
                         navController = navController,
+                        preferencesManager = preferencesManager,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

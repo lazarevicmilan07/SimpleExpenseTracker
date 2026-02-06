@@ -18,7 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.expensetracker.app.data.preferences.PreferencesManager
 import com.expensetracker.app.domain.usecase.ExportPeriodParams
+import com.expensetracker.app.ui.components.AdBanner
 
 enum class PendingExportAction {
     EXCEL, PDF, BACKUP
@@ -29,6 +31,7 @@ enum class PendingExportAction {
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onShowPremium: () -> Unit,
+    preferencesManager: PreferencesManager,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val userPreferences by viewModel.userPreferences.collectAsState()
@@ -144,6 +147,9 @@ fun SettingsScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            AdBanner(preferencesManager = preferencesManager)
         }
     ) { paddingValues ->
         LazyColumn(

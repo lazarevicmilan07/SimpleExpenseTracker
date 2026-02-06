@@ -1,6 +1,7 @@
 package com.expensetracker.app.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,7 +23,9 @@ fun AdBanner(
     // TODO: Change back to `if (!isPremium)` before release
     if (true) {
         AndroidView(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier
+                .fillMaxWidth()
+                .navigationBarsPadding(),
             factory = { context ->
                 AdView(context).apply {
                     setAdSize(AdSize.BANNER)
