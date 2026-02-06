@@ -10,6 +10,7 @@ data class Expense(
     val categoryId: Long?,
     val subcategoryId: Long? = null,
     val accountId: Long?,
+    val toAccountId: Long? = null,
     val type: TransactionType,
     val date: LocalDate,
     val createdAt: Long = System.currentTimeMillis()
@@ -19,7 +20,8 @@ data class ExpenseWithCategory(
     val expense: Expense,
     val category: Category?,
     val subcategory: Category? = null,
-    val account: Account? = null
+    val account: Account? = null,
+    val toAccount: Account? = null
 )
 
 data class MonthlyStats(

@@ -23,6 +23,17 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
+enum class TransactionField {
+    NONE,
+    DATE,
+    ACCOUNT,
+    TO_ACCOUNT,
+    CATEGORY,
+    SUBCATEGORY,
+    AMOUNT,
+    NOTE
+}
+
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
@@ -75,6 +86,8 @@ class TransactionViewModel @Inject constructor(
         } else if (expenseId != null) {
             loadExpense(expenseId)
         } else {
+            // New transaction - set focus to account selection
+            _uiState.value = _uiState.value.copy(currentField = TransactionField.ACCOUNT)
             loadDefaultAccount()
         }
     }
@@ -96,9 +109,11 @@ class TransactionViewModel @Inject constructor(
                     selectedCategoryId = expense.subcategoryId ?: expense.categoryId,
                     selectedParentCategoryId = expense.categoryId,
                     selectedAccountId = expense.accountId,
+                    toAccountId = expense.toAccountId,
                     transactionType = expense.type,
                     selectedDate = expense.date,
-                    isEditing = true
+                    isEditing = true,
+                    currentField = TransactionField.NONE
                 )
                 // If subcategoryId is set, load subcategories and show selector
                 if (expense.subcategoryId != null && expense.categoryId != null) {
@@ -123,9 +138,11 @@ class TransactionViewModel @Inject constructor(
                     selectedCategoryId = expense.subcategoryId ?: expense.categoryId,
                     selectedParentCategoryId = expense.categoryId,
                     selectedAccountId = expense.accountId,
+                    toAccountId = expense.toAccountId,
                     transactionType = expense.type,
                     selectedDate = if (useToday) LocalDate.now() else expense.date,
-                    isEditing = false
+                    isEditing = false,
+                    currentField = TransactionField.ACCOUNT
                 )
                 if (expense.subcategoryId != null && expense.categoryId != null) {
                     _selectedParentCategoryId.value = expense.categoryId
@@ -140,11 +157,43 @@ class TransactionViewModel @Inject constructor(
         }
     }
 
+    fun setCurrentField(field: TransactionField) {
+        _uiState.value = _uiState.value.copy(currentField = field)
+    }
+
     fun updateAmount(amount: String) {
-        val filtered = amount.filter { it.isDigit() || it == '.' }
+        val filtered = amount.filter { it.isDigit() || it == '.' || it == '-' }
         if (filtered.count { it == '.' } <= 1) {
             _uiState.value = _uiState.value.copy(amount = filtered)
         }
+    }
+
+    fun appendToAmount(digit: String) {
+        val current = _uiState.value.amount
+        if (digit == "." && current.replace("-", "").contains(".")) return
+        val newAmount = current + digit
+        _uiState.value = _uiState.value.copy(amount = newAmount)
+    }
+
+    fun deleteLastDigit() {
+        val current = _uiState.value.amount
+        if (current.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(amount = current.dropLast(1))
+        }
+    }
+
+    fun clearAmount() {
+        _uiState.value = _uiState.value.copy(amount = "")
+    }
+
+    fun toggleMinus() {
+        val current = _uiState.value.amount
+        val newAmount = if (current.startsWith("-")) {
+            current.removePrefix("-")
+        } else {
+            "-$current"
+        }
+        _uiState.value = _uiState.value.copy(amount = newAmount)
     }
 
     fun formatAmount() {
@@ -169,28 +218,40 @@ class TransactionViewModel @Inject constructor(
             categoryRepository.getSubcategories(categoryId).collect { subcategories ->
                 _availableSubcategories.value = subcategories
                 if (subcategories.isEmpty()) {
-                    // No subcategories, use parent category directly
+                    // No subcategories, use parent category directly, move to amount
                     _uiState.value = _uiState.value.copy(
                         selectedCategoryId = categoryId,
                         selectedParentCategoryId = categoryId,
-                        showSubcategorySelector = false
+                        showSubcategorySelector = false,
+                        currentField = TransactionField.AMOUNT
                     )
                 } else {
-                    // Show subcategory selector, but subcategory is optional
-                    // Set selectedCategoryId to parent so transaction can be saved without subcategory
+                    // Show subcategory selector
                     _uiState.value = _uiState.value.copy(
                         selectedParentCategoryId = categoryId,
-                        selectedCategoryId = categoryId, // Use parent by default, subcategory is optional
-                        showSubcategorySelector = true
+                        selectedCategoryId = null,
+                        showSubcategorySelector = true,
+                        currentField = TransactionField.SUBCATEGORY
                     )
                 }
             }
         }
     }
 
+    // Called when clicking on category that has subcategories showing - to select parent only
+    fun selectParentCategoryOnly(categoryId: Long) {
+        _uiState.value = _uiState.value.copy(
+            selectedCategoryId = categoryId,
+            selectedParentCategoryId = categoryId,
+            showSubcategorySelector = false,
+            currentField = TransactionField.AMOUNT
+        )
+    }
+
     fun selectSubcategory(subcategoryId: Long) {
         _uiState.value = _uiState.value.copy(
-            selectedCategoryId = subcategoryId
+            selectedCategoryId = subcategoryId,
+            currentField = TransactionField.AMOUNT
         )
     }
 
@@ -204,22 +265,58 @@ class TransactionViewModel @Inject constructor(
         )
     }
 
-    fun getSelectedCategoryName(): String? {
+    fun getSelectedCategory(): Category? {
         val categoryId = _uiState.value.selectedCategoryId ?: return null
-        return allCategories.value.find { it.id == categoryId }?.name
+        return allCategories.value.find { it.id == categoryId }
     }
 
-    fun getSelectedParentCategoryName(): String? {
-        val parentId = _selectedParentCategoryId.value ?: return null
-        return allCategories.value.find { it.id == parentId }?.name
+    fun getSelectedParentCategory(): Category? {
+        val parentId = _uiState.value.selectedParentCategoryId ?: return null
+        return allCategories.value.find { it.id == parentId }
+    }
+
+    fun getCategoryDisplayText(): String {
+        val parentCategory = getSelectedParentCategory()
+        val selectedCategory = getSelectedCategory()
+
+        return when {
+            parentCategory == null && selectedCategory == null -> ""
+            parentCategory != null && selectedCategory != null && parentCategory.id != selectedCategory.id ->
+                "${parentCategory.name}/${selectedCategory.name}"
+            parentCategory != null -> parentCategory.name
+            selectedCategory != null -> selectedCategory.name
+            else -> ""
+        }
     }
 
     fun selectAccount(accountId: Long?) {
-        _uiState.value = _uiState.value.copy(selectedAccountId = accountId)
+        val nextField = if (_uiState.value.transactionType == TransactionType.TRANSFER) {
+            TransactionField.TO_ACCOUNT
+        } else {
+            TransactionField.CATEGORY
+        }
+        _uiState.value = _uiState.value.copy(
+            selectedAccountId = accountId,
+            currentField = nextField
+        )
+    }
+
+    fun selectToAccount(accountId: Long?) {
+        _uiState.value = _uiState.value.copy(
+            toAccountId = accountId,
+            currentField = TransactionField.AMOUNT
+        )
     }
 
     fun selectTransactionType(type: TransactionType) {
-        _uiState.value = _uiState.value.copy(transactionType = type)
+        _uiState.value = _uiState.value.copy(
+            transactionType = type,
+            // Reset selections when changing type
+            selectedCategoryId = if (type == TransactionType.TRANSFER) null else _uiState.value.selectedCategoryId,
+            selectedParentCategoryId = if (type == TransactionType.TRANSFER) null else _uiState.value.selectedParentCategoryId,
+            toAccountId = if (type != TransactionType.TRANSFER) null else _uiState.value.toAccountId,
+            currentField = TransactionField.ACCOUNT
+        )
     }
 
     fun selectDate(date: LocalDate) {
@@ -239,43 +336,74 @@ class TransactionViewModel @Inject constructor(
             val state = _uiState.value
             val amount = state.amount.toDoubleOrNull()
 
-            if (amount == null || amount <= 0) {
-                _events.emit(TransactionEvent.ShowError("Please enter a valid amount"))
+            if (amount == null) {
+                _events.emit(TransactionEvent.ShowError("Please enter an amount"))
                 return@launch
             }
-
-            val parentId = state.selectedParentCategoryId
-            val childId = state.selectedCategoryId
-
-            if (parentId == null && childId == null) {
-                _events.emit(TransactionEvent.ShowError("Please select a category"))
-                return@launch
-            }
-
-            // Subcategory is optional - no validation required
 
             if (state.selectedAccountId == null) {
                 _events.emit(TransactionEvent.ShowError("Please select an account"))
                 return@launch
             }
 
-            val hasSubcategory = parentId != null && childId != null && parentId != childId
+            if (state.transactionType == TransactionType.TRANSFER) {
+                // Validate transfer
+                if (state.toAccountId == null) {
+                    _events.emit(TransactionEvent.ShowError("Please select destination account"))
+                    return@launch
+                }
+                if (state.selectedAccountId == state.toAccountId) {
+                    _events.emit(TransactionEvent.ShowError("Source and destination accounts must be different"))
+                    return@launch
+                }
 
-            val expense = Expense(
-                id = expenseId ?: 0,
-                amount = amount,
-                note = state.note,
-                categoryId = parentId ?: childId,
-                subcategoryId = if (hasSubcategory) childId else null,
-                accountId = state.selectedAccountId,
-                type = state.transactionType,
-                date = state.selectedDate
-            )
+                // Save transfer transaction
+                val expense = Expense(
+                    id = expenseId ?: 0,
+                    amount = amount,
+                    note = state.note,
+                    categoryId = null,
+                    subcategoryId = null,
+                    accountId = state.selectedAccountId,
+                    toAccountId = state.toAccountId,
+                    type = TransactionType.TRANSFER,
+                    date = state.selectedDate
+                )
 
-            if (expenseId != null) {
-                expenseRepository.updateExpense(expense)
+                if (expenseId != null) {
+                    expenseRepository.updateExpense(expense)
+                } else {
+                    expenseRepository.insertExpense(expense)
+                }
             } else {
-                expenseRepository.insertExpense(expense)
+                // Income or Expense
+                val parentId = state.selectedParentCategoryId
+                val childId = state.selectedCategoryId
+
+                if (parentId == null && childId == null) {
+                    _events.emit(TransactionEvent.ShowError("Please select a category"))
+                    return@launch
+                }
+
+                val hasSubcategory = parentId != null && childId != null && parentId != childId
+
+                val expense = Expense(
+                    id = expenseId ?: 0,
+                    amount = amount,
+                    note = state.note,
+                    categoryId = parentId ?: childId,
+                    subcategoryId = if (hasSubcategory) childId else null,
+                    accountId = state.selectedAccountId,
+                    toAccountId = null,
+                    type = state.transactionType,
+                    date = state.selectedDate
+                )
+
+                if (expenseId != null) {
+                    expenseRepository.updateExpense(expense)
+                } else {
+                    expenseRepository.insertExpense(expense)
+                }
             }
 
             if (andContinue) {
@@ -285,7 +413,9 @@ class TransactionViewModel @Inject constructor(
                     note = "",
                     selectedCategoryId = null,
                     selectedParentCategoryId = null,
-                    showSubcategorySelector = false
+                    toAccountId = null,
+                    showSubcategorySelector = false,
+                    currentField = TransactionField.ACCOUNT
                 )
                 _events.emit(TransactionEvent.TransactionSavedAndContinue)
             } else {
@@ -309,10 +439,12 @@ data class TransactionUiState(
     val selectedCategoryId: Long? = null,
     val selectedParentCategoryId: Long? = null,
     val selectedAccountId: Long? = null,
+    val toAccountId: Long? = null,
     val transactionType: TransactionType = TransactionType.EXPENSE,
     val selectedDate: LocalDate = LocalDate.now(),
     val isEditing: Boolean = false,
-    val showSubcategorySelector: Boolean = false
+    val showSubcategorySelector: Boolean = false,
+    val currentField: TransactionField = TransactionField.ACCOUNT
 )
 
 sealed class TransactionEvent {

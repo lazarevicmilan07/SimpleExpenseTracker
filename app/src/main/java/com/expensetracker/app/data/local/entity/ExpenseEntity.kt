@@ -38,10 +38,12 @@ data class ExpenseEntity(
     val type: TransactionType,
     val date: Long,
     val subcategoryId: Long? = null,
+    val toAccountId: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
 
 enum class TransactionType {
     EXPENSE,
-    INCOME
+    INCOME,
+    TRANSFER
 }

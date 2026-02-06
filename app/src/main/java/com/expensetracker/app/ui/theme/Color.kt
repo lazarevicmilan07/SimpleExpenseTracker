@@ -47,8 +47,10 @@ val OnErrorDark = Color(0xFF690005)
 // Additional app colors
 val IncomeGreen = Color(0xFF4CAF50)
 val ExpenseRed = Color(0xFFE53935)
+val TransferBlue = Color(0xFF2196F3)
 val IncomeGreenLight = Color(0xFFE8F5E9)
 val ExpenseRedLight = Color(0xFFFFEBEE)
+val TransferBlueLight = Color(0xFFE3F2FD)
 
 // Chart colors
 val ChartColors = listOf(

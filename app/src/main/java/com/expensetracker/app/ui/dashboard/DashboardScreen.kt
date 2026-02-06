@@ -39,6 +39,7 @@ import com.expensetracker.app.ui.components.CategoryIcon
 import com.expensetracker.app.ui.components.formatCurrency
 import com.expensetracker.app.ui.theme.ExpenseRed
 import com.expensetracker.app.ui.theme.IncomeGreen
+import com.expensetracker.app.ui.theme.TransferBlue
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
@@ -519,13 +520,19 @@ fun CompactTransactionItem(
     onClick: () -> Unit
 ) {
     val isExpense = transaction.expense.type == TransactionType.EXPENSE
+    val isTransfer = transaction.expense.type == TransactionType.TRANSFER
     val amountColor by animateColorAsState(
-        targetValue = if (isExpense) ExpenseRed else IncomeGreen,
+        targetValue = when (transaction.expense.type) {
+            TransactionType.EXPENSE -> ExpenseRed
+            TransactionType.INCOME -> IncomeGreen
+            TransactionType.TRANSFER -> TransferBlue
+        },
         label = "amount_color"
     )
     val hasSubcategory = transaction.subcategory != null
     val hasNote = transaction.expense.note.isNotBlank()
     val accountName = transaction.account?.name
+    val toAccountName = transaction.toAccount?.name
 
     Surface(
         modifier = Modifier
@@ -541,8 +548,8 @@ fun CompactTransactionItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             CategoryIcon(
-                icon = transaction.category?.icon ?: "more_horiz",
-                color = transaction.category?.color ?: Color.Gray,
+                icon = if (isTransfer) "swap_horiz" else (transaction.category?.icon ?: "more_horiz"),
+                color = if (isTransfer) TransferBlue else (transaction.category?.color ?: Color.Gray),
                 size = 30.dp,
                 iconSize = 15.dp
             )
@@ -553,16 +560,16 @@ fun CompactTransactionItem(
             // Left column: category/subcategory
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = if (hasSubcategory) Arrangement.Top else Arrangement.Center
+                verticalArrangement = if (hasSubcategory && !isTransfer) Arrangement.Top else Arrangement.Center
             ) {
                 Text(
-                    text = transaction.category?.name ?: "Uncategorized",
+                    text = if (isTransfer) "Transfer" else (transaction.category?.name ?: "Uncategorized"),
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (hasSubcategory) {
+                if (!isTransfer && hasSubcategory) {
                     Text(
                         text = transaction.subcategory!!.name,
                         style = MaterialTheme.typography.labelSmall,
@@ -589,7 +596,14 @@ fun CompactTransactionItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (accountName != null) {
+                if (isTransfer && accountName != null && toAccountName != null) {
+                    Text(
+                        text = "$accountName -> $toAccountName",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                        maxLines = 1
+                    )
+                } else if (accountName != null) {
                     Text(
                         text = accountName,
                         style = MaterialTheme.typography.labelSmall,
@@ -602,7 +616,11 @@ fun CompactTransactionItem(
             Spacer(modifier = Modifier.width(8.dp))
 
             Text(
-                text = "${if (isExpense) "-" else "+"}${formatCurrency(transaction.expense.amount, currency)}",
+                text = when {
+                    isTransfer -> formatCurrency(transaction.expense.amount, currency)
+                    isExpense -> "-${formatCurrency(transaction.expense.amount, currency)}"
+                    else -> "+${formatCurrency(transaction.expense.amount, currency)}"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
                 color = amountColor,

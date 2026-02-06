@@ -1,25 +1,28 @@
 package com.expensetracker.app.ui.transaction
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,11 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,11 +51,15 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+private val TransferBlue = Color(0xFF2196F3)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionScreen(
     onNavigateBack: () -> Unit,
     onCopyTransaction: ((Long, Boolean) -> Unit)? = null,
+    onNavigateToAccounts: (() -> Unit)? = null,
+    onNavigateToCategories: (() -> Unit)? = null,
     viewModel: TransactionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -63,6 +69,21 @@ fun TransactionScreen(
     val allCategories by viewModel.categories.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val context = LocalContext.current
+
+    // Compute category display text reactively
+    val categoryDisplayText = remember(uiState.selectedParentCategoryId, uiState.selectedCategoryId, allCategories) {
+        val parentCategory = uiState.selectedParentCategoryId?.let { id -> allCategories.find { it.id == id } }
+        val selectedCategory = uiState.selectedCategoryId?.let { id -> allCategories.find { it.id == id } }
+
+        when {
+            parentCategory == null && selectedCategory == null -> ""
+            parentCategory != null && selectedCategory != null && parentCategory.id != selectedCategory.id ->
+                "${parentCategory.name}/${selectedCategory.name}"
+            parentCategory != null -> parentCategory.name
+            selectedCategory != null -> selectedCategory.name
+            else -> ""
+        }
+    }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showCopyDialog by remember { mutableStateOf(false) }
@@ -89,18 +110,28 @@ fun TransactionScreen(
         }
     }
 
+    val typeColor = when (uiState.transactionType) {
+        TransactionType.EXPENSE -> ExpenseRed
+        TransactionType.INCOME -> IncomeGreen
+        TransactionType.TRANSFER -> TransferBlue
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        if (uiState.isEditing) "Edit Transaction" else "Add Transaction",
+                        when (uiState.transactionType) {
+                            TransactionType.EXPENSE -> "Expense"
+                            TransactionType.INCOME -> "Income"
+                            TransactionType.TRANSFER -> "Transfer"
+                        },
                         style = MaterialTheme.typography.titleMedium
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -122,22 +153,6 @@ fun TransactionScreen(
                             )
                         }
                     }
-                    if (!uiState.isEditing) {
-                        IconButton(onClick = { viewModel.saveAndContinue() }) {
-                            Icon(
-                                Icons.Default.PlaylistAdd,
-                                contentDescription = "Save & Continue",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    IconButton(onClick = { viewModel.saveTransaction() }) {
-                        Icon(
-                            Icons.Default.Save,
-                            contentDescription = "Save",
-                            tint = MaterialTheme.colorScheme.secondary
-                        )
-                    }
                 }
             )
         }
@@ -146,79 +161,47 @@ fun TransactionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Transaction Type Toggle
-            TransactionTypeToggle(
-                selectedType = uiState.transactionType,
-                onTypeSelected = viewModel::selectTransactionType
-            )
+            // Main content area (scrollable form)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
 
+                // Transaction Type Toggle
+                TransactionTypeToggle(
+                    selectedType = uiState.transactionType,
+                    onTypeSelected = viewModel::selectTransactionType
+                )
 
-            // 2. Amount Input
-            AmountInput(
-                amount = uiState.amount,
-                onAmountChange = viewModel::updateAmount,
-                onAmountFocusLost = viewModel::formatAmount,
-                transactionType = uiState.transactionType,
-                currencyCode = currency
-            )
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // 3. Date Selector
-            DateSelector(
-                selectedDate = uiState.selectedDate,
-                onClick = { showDatePicker = true }
-            )
-
-            // 4. Account Selector (optional)
-            AccountSelector(
-                accounts = accounts,
-                selectedAccountId = uiState.selectedAccountId,
-                onAccountSelected = viewModel::selectAccount
-            )
-
-            // 5. Category Dropdown
-            CategoryDropdown(
-                categories = rootCategories,
-                selectedCategoryId = if (uiState.showSubcategorySelector) {
-                    // If showing subcategory selector, show the parent category
-                    uiState.selectedParentCategoryId
-                } else {
-                    uiState.selectedCategoryId
-                },
-                allCategories = allCategories,
-                onCategorySelected = { categoryId ->
-                    categoryId?.let { viewModel.selectParentCategory(it) }
-                }
-            )
-
-            // 6. Subcategory Dropdown (conditional - only shown when parent has subcategories)
-            if (uiState.showSubcategorySelector && availableSubcategories.isNotEmpty()) {
-                SubcategoryDropdown(
-                    subcategories = availableSubcategories,
-                    selectedSubcategoryId = uiState.selectedCategoryId,
-                    onSubcategorySelected = { viewModel.selectSubcategory(it!!) }
+                // Form Fields
+                TransactionFormFields(
+                    uiState = uiState,
+                    accounts = accounts,
+                    currency = currency,
+                    categoryDisplayText = categoryDisplayText,
+                    viewModel = viewModel,
+                    onDateClick = { showDatePicker = true }
                 )
             }
 
-            // 7. Note Input (optional)
-            OutlinedTextField(
-                value = uiState.note,
-                onValueChange = viewModel::updateNote,
-                label = { Text("Note (optional)") },
-                modifier = Modifier.fillMaxWidth(),
-                //singleLine = true,
-                minLines = 3,
-                maxLines = 5,
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Default
-                ),
-                leadingIcon = {
-                    Icon(Icons.Default.Notes, contentDescription = null)
-                }
+            // Bottom Panel (changes based on current field)
+            BottomSelectionPanel(
+                uiState = uiState,
+                accounts = accounts,
+                rootCategories = rootCategories,
+                availableSubcategories = availableSubcategories,
+                currency = currency,
+                viewModel = viewModel,
+                onSave = { viewModel.saveTransaction() },
+                onContinue = { viewModel.saveAndContinue() },
+                isEditing = uiState.isEditing,
+                onNavigateToAccounts = onNavigateToAccounts,
+                onNavigateToCategories = onNavigateToCategories
             )
         }
     }
@@ -300,7 +283,11 @@ fun TransactionTypeToggle(
             val isSelected = type == selectedType
             val backgroundColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    if (type == TransactionType.EXPENSE) ExpenseRed else IncomeGreen
+                    when (type) {
+                        TransactionType.EXPENSE -> ExpenseRed
+                        TransactionType.INCOME -> IncomeGreen
+                        TransactionType.TRANSFER -> TransferBlue
+                    }
                 } else Color.Transparent,
                 label = "tab_bg"
             )
@@ -329,132 +316,303 @@ fun TransactionTypeToggle(
 }
 
 @Composable
-fun AmountInput(
-    amount: String,
-    onAmountChange: (String) -> Unit,
-    onAmountFocusLost: () -> Unit = {},
-    transactionType: TransactionType,
-    currencyCode: String = "USD"
+fun TransactionFormFields(
+    uiState: TransactionUiState,
+    accounts: List<Account>,
+    currency: String,
+    categoryDisplayText: String,
+    viewModel: TransactionViewModel,
+    onDateClick: () -> Unit
 ) {
-    val textColor by animateColorAsState(
-        targetValue = if (transactionType == TransactionType.EXPENSE) ExpenseRed else IncomeGreen,
-        label = "amount_color"
-    )
+    val selectedAccount = accounts.find { it.id == uiState.selectedAccountId }
+    val selectedToAccount = accounts.find { it.id == uiState.toAccountId }
+    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy (EEE)")
 
-    var currentValue by remember { mutableStateOf(TextFieldValue(text = amount)) }
-    val focusManager = LocalFocusManager.current
-    var pendingSelectAll by remember { mutableStateOf(false) }
-
-    // Sync external amount changes (e.g. formatAmount on focus loss) without resetting selection
-    LaunchedEffect(amount) {
-        if (amount != currentValue.text) {
-            currentValue = TextFieldValue(
-                text = amount,
-                selection = TextRange(amount.length)
-            )
-        }
+    val typeColor = when (uiState.transactionType) {
+        TransactionType.EXPENSE -> ExpenseRed
+        TransactionType.INCOME -> IncomeGreen
+        TransactionType.TRANSFER -> TransferBlue
     }
 
-    // Apply select-all after composition so it isn't overwritten by the TextField's focus handling
-    LaunchedEffect(pendingSelectAll) {
-        if (pendingSelectAll) {
-            currentValue = currentValue.copy(
-                selection = TextRange(0, currentValue.text.length)
-            )
-            pendingSelectAll = false
-        }
-    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Date Field
+        FormFieldRow(
+            label = "Date",
+            value = uiState.selectedDate.format(dateFormatter),
+            isActive = uiState.currentField == TransactionField.DATE,
+            activeColor = typeColor,
+            onClick = onDateClick
+        )
 
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        // Account / From Field
+        FormFieldRow(
+            label = if (uiState.transactionType == TransactionType.TRANSFER) "From" else "Account",
+            value = selectedAccount?.name ?: "",
+            isActive = uiState.currentField == TransactionField.ACCOUNT,
+            activeColor = typeColor,
+            onClick = { viewModel.setCurrentField(TransactionField.ACCOUNT) }
+        )
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        if (uiState.transactionType == TransactionType.TRANSFER) {
+            // To Account Field (Transfer only)
+            FormFieldRow(
+                label = "To",
+                value = selectedToAccount?.name ?: "",
+                isActive = uiState.currentField == TransactionField.TO_ACCOUNT,
+                activeColor = typeColor,
+                onClick = { viewModel.setCurrentField(TransactionField.TO_ACCOUNT) }
+            )
+        } else {
+            // Category Field (Income/Expense only)
+            FormFieldRow(
+                label = "Category",
+                value = categoryDisplayText,
+                isActive = uiState.currentField == TransactionField.CATEGORY ||
+                          uiState.currentField == TransactionField.SUBCATEGORY,
+                activeColor = typeColor,
+                onClick = { viewModel.setCurrentField(TransactionField.CATEGORY) }
+            )
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        // Amount Field
+        FormFieldRow(
+            label = "Amount",
+            value = if (uiState.amount.isNotEmpty()) "${getCurrencySymbol(currency)}${uiState.amount}" else "",
+            isActive = uiState.currentField == TransactionField.AMOUNT,
+            activeColor = typeColor,
+            onClick = { viewModel.setCurrentField(TransactionField.AMOUNT) }
+        )
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        // Note Field
+        FormFieldRow(
+            label = "Note",
+            value = uiState.note,
+            isActive = uiState.currentField == TransactionField.NOTE,
+            activeColor = typeColor,
+            onClick = { viewModel.setCurrentField(TransactionField.NOTE) },
+            isDotted = true
+        )
+    }
+}
+
+@Composable
+fun FormFieldRow(
+    label: String,
+    value: String,
+    isActive: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit,
+    isDotted: Boolean = false
+) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp)
     ) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (transactionType == TransactionType.EXPENSE) "-${getCurrencySymbol(currencyCode)}" else "+${getCurrencySymbol(currencyCode)}",
-                style = MaterialTheme.typography.headlineLarge,
-                color = textColor,
-                fontWeight = FontWeight.Bold
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
-            OutlinedTextField(
-                value = currentValue,
-                onValueChange = { newValue ->
-                    currentValue = newValue
-                    onAmountChange(newValue.text)
-                },
+            Text(
+                text = value.ifEmpty { if (isDotted) ". . . . . . . . . . ." else "" },
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (value.isEmpty())
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                else
+                    MaterialTheme.colorScheme.onSurface
+            )
+        }
+        if (isActive) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
                 modifier = Modifier
-                    .width(200.dp)
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) {
-                            pendingSelectAll = true
-                        } else {
-                            onAmountFocusLost()
-                        }
-                    },
-                textStyle = MaterialTheme.typography.headlineLarge.copy(
-                    color = textColor,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Start
-                ),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = { focusManager.clearFocus() }
-                ),
-                singleLine = true,
-                placeholder = {
-                    Text(
-                        text = "0.00",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = textColor.copy(alpha = 0.3f)
-                    )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent
-                )
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(activeColor)
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DateSelector(
-    selectedDate: LocalDate,
-    onClick: () -> Unit
+fun BottomSelectionPanel(
+    uiState: TransactionUiState,
+    accounts: List<Account>,
+    rootCategories: List<Category>,
+    availableSubcategories: List<Category>,
+    currency: String,
+    viewModel: TransactionViewModel,
+    onSave: () -> Unit,
+    onContinue: () -> Unit,
+    isEditing: Boolean,
+    onNavigateToAccounts: (() -> Unit)? = null,
+    onNavigateToCategories: (() -> Unit)? = null
 ) {
-    val formatter = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
+    val typeColor = when (uiState.transactionType) {
+        TransactionType.EXPENSE -> ExpenseRed
+        TransactionType.INCOME -> IncomeGreen
+        TransactionType.TRANSFER -> TransferBlue
+    }
 
-    OutlinedCard(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 8.dp
     ) {
+        Column {
+            when (uiState.currentField) {
+                TransactionField.ACCOUNT -> {
+                    AccountSelectionPanel(
+                        accounts = accounts,
+                        selectedAccountId = uiState.selectedAccountId,
+                        excludeAccountId = null,
+                        onAccountSelected = { viewModel.selectAccount(it) },
+                        onClose = { viewModel.setCurrentField(TransactionField.NONE) },
+                        onEditAccounts = onNavigateToAccounts,
+                        title = if (uiState.transactionType == TransactionType.TRANSFER) "From Account" else "Accounts"
+                    )
+                }
+                TransactionField.TO_ACCOUNT -> {
+                    AccountSelectionPanel(
+                        accounts = accounts,
+                        selectedAccountId = uiState.toAccountId,
+                        excludeAccountId = uiState.selectedAccountId,
+                        onAccountSelected = { viewModel.selectToAccount(it) },
+                        onClose = { viewModel.setCurrentField(TransactionField.NONE) },
+                        onEditAccounts = onNavigateToAccounts,
+                        title = "To Account"
+                    )
+                }
+                TransactionField.CATEGORY -> {
+                    CategorySelectionPanel(
+                        categories = rootCategories,
+                        selectedCategoryId = uiState.selectedParentCategoryId,
+                        onCategorySelected = { viewModel.selectParentCategory(it) },
+                        onClose = { viewModel.setCurrentField(TransactionField.NONE) },
+                        onEditCategories = onNavigateToCategories
+                    )
+                }
+                TransactionField.SUBCATEGORY -> {
+                    SubcategorySelectionPanel(
+                        allCategories = rootCategories,
+                        selectedParentCategoryId = uiState.selectedParentCategoryId,
+                        subcategories = availableSubcategories,
+                        selectedSubcategoryId = uiState.selectedCategoryId,
+                        onCategorySelected = { viewModel.selectParentCategory(it) },
+                        onSubcategorySelected = { viewModel.selectSubcategory(it) },
+                        onParentSelected = { viewModel.selectParentCategoryOnly(uiState.selectedParentCategoryId!!) },
+                        onClose = { viewModel.setCurrentField(TransactionField.CATEGORY) },
+                        onEditCategories = onNavigateToCategories
+                    )
+                }
+                TransactionField.AMOUNT -> {
+                    Column {
+                        AmountInputPanel(
+                            amount = uiState.amount,
+                            currency = currency,
+                            onDigit = { viewModel.appendToAmount(it) },
+                            onDelete = { viewModel.deleteLastDigit() },
+                            onMinus = { viewModel.toggleMinus() },
+                            onClose = { viewModel.setCurrentField(TransactionField.NONE) }
+                        )
+                        SaveButtonsPanel(
+                            onSave = onSave,
+                            onContinue = onContinue,
+                            isEditing = isEditing,
+                            typeColor = typeColor
+                        )
+                    }
+                }
+                TransactionField.NOTE -> {
+                    Column {
+                        NoteInputPanel(
+                            note = uiState.note,
+                            onNoteChange = { viewModel.updateNote(it) },
+                            onClose = { viewModel.setCurrentField(TransactionField.NONE) }
+                        )
+                        SaveButtonsPanel(
+                            onSave = onSave,
+                            onContinue = onContinue,
+                            isEditing = isEditing,
+                            typeColor = typeColor
+                        )
+                    }
+                }
+                else -> {
+                    // Show Save/Continue buttons
+                    SaveButtonsPanel(
+                        onSave = onSave,
+                        onContinue = onContinue,
+                        isEditing = isEditing,
+                        typeColor = typeColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AccountSelectionPanel(
+    accounts: List<Account>,
+    selectedAccountId: Long?,
+    excludeAccountId: Long?,
+    onAccountSelected: (Long) -> Unit,
+    onClose: () -> Unit,
+    onEditAccounts: (() -> Unit)? = null,
+    title: String
+) {
+    val filteredAccounts = accounts.filter { it.id != excludeAccountId }
+
+    Column(modifier = Modifier.padding(16.dp)) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.CalendarToday,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = "Date",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = selectedDate.format(formatter),
-                    style = MaterialTheme.typography.bodyLarge
+            Row {
+                IconButton(onClick = { onEditAccounts?.invoke() }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.heightIn(max = 300.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(filteredAccounts) { account ->
+                AccountChip(
+                    account = account,
+                    isSelected = account.id == selectedAccountId,
+                    onClick = { onAccountSelected(account.id) }
                 )
             }
         }
@@ -462,47 +620,197 @@ fun DateSelector(
 }
 
 @Composable
-fun SelectedCategoryChip(
-    category: Category,
-    parentCategory: Category?,
-    onClear: () -> Unit
+fun AccountChip(
+    account: Account,
+    isSelected: Boolean,
+    onClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = category.color.copy(alpha = 0.15f),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
+        color = if (isSelected)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        else
+            MaterialTheme.colorScheme.surface,
+        border = if (isSelected)
+            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        else
+            null,
+        tonalElevation = if (isSelected) 0.dp else 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = account.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+            )
+        }
+    }
+}
+
+@Composable
+fun CategorySelectionPanel(
+    categories: List<Category>,
+    selectedCategoryId: Long?,
+    onCategorySelected: (Long) -> Unit,
+    onClose: () -> Unit,
+    onEditCategories: (() -> Unit)? = null
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Category",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Row {
+                IconButton(onClick = { onEditCategories?.invoke() }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn(
+            modifier = Modifier.heightIn(max = 300.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(categories) { category ->
+                CategoryListItem(
+                    category = category,
+                    isSelected = category.id == selectedCategoryId,
+                    onClick = { onCategorySelected(category.id) },
+                    showArrow = true
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SubcategorySelectionPanel(
+    allCategories: List<Category>,
+    selectedParentCategoryId: Long?,
+    subcategories: List<Category>,
+    selectedSubcategoryId: Long?,
+    onCategorySelected: (Long) -> Unit,
+    onSubcategorySelected: (Long) -> Unit,
+    onParentSelected: () -> Unit,
+    onClose: () -> Unit,
+    onEditCategories: (() -> Unit)? = null
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Category",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Row {
+                IconButton(onClick = { onEditCategories?.invoke() }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.heightIn(max = 300.dp)
+        ) {
+            // Left column - All categories (with selected parent highlighted)
+            LazyColumn(
+                modifier = Modifier.weight(0.45f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(allCategories) { category ->
+                    val isSelected = category.id == selectedParentCategoryId
+                    CategoryListItem(
+                        category = category,
+                        isSelected = isSelected,
+                        onClick = {
+                            if (isSelected) {
+                                // Click on already selected category to select parent only
+                                onParentSelected()
+                            } else {
+                                // Click on different category to switch
+                                onCategorySelected(category.id)
+                            }
+                        },
+                        showArrow = true,
+                        highlightColor = if (isSelected) ExpenseRed.copy(alpha = 0.15f) else Color.Transparent
+                    )
+                }
+            }
+
+            // Right column - Subcategories
+            LazyColumn(
+                modifier = Modifier.weight(0.55f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(subcategories) { subcategory ->
+                    SubcategoryListItem(
+                        subcategory = subcategory,
+                        isSelected = subcategory.id == selectedSubcategoryId,
+                        onClick = { onSubcategorySelected(subcategory.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CategoryListItem(
+    category: Category,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    showArrow: Boolean = false,
+    highlightColor: Color = Color.Transparent
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
+        color = if (isSelected && highlightColor != Color.Transparent) highlightColor
+               else if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+               else Color.Transparent
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CategoryIcon(
-                icon = category.icon,
-                color = category.color,
-                size = 36.dp,
-                iconSize = 18.dp
+            Text(
+                text = category.name,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                if (parentCategory != null) {
-                    Text(
-                        text = parentCategory.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-                Text(
-                    text = category.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            IconButton(onClick = onClear, modifier = Modifier.size(32.dp)) {
+            if (showArrow) {
                 Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Clear selection",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.size(18.dp)
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
         }
@@ -510,63 +818,242 @@ fun SelectedCategoryChip(
 }
 
 @Composable
-fun CategoryGrid(
-    categories: List<Category>,
-    selectedCategoryId: Long?,
-    onCategorySelected: (Long?) -> Unit
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(4),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.height(200.dp)
-    ) {
-        items(categories) { category ->
-            CategoryItem(
-                category = category,
-                isSelected = category.id == selectedCategoryId,
-                onClick = { onCategorySelected(category.id) }
-            )
-        }
-    }
-}
-
-@Composable
-fun CategoryItem(
-    category: Category,
+fun SubcategoryListItem(
+    subcategory: Category,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = subcategory.name,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun AmountInputPanel(
+    amount: String,
+    currency: String,
+    onDigit: (String) -> Unit,
+    onDelete: () -> Unit,
+    onMinus: () -> Unit,
+    onClose: () -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Amount",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            IconButton(onClick = onClose) {
+                Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Numeric Keyboard
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            // Row 1: 1, 2, 3, Backspace
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                NumPadKey(text = "1", modifier = Modifier.weight(1f)) { onDigit("1") }
+                NumPadKey(text = "2", modifier = Modifier.weight(1f)) { onDigit("2") }
+                NumPadKey(text = "3", modifier = Modifier.weight(1f)) { onDigit("3") }
+                NumPadKey(icon = Icons.AutoMirrored.Filled.Backspace, modifier = Modifier.weight(1f)) { onDelete() }
+            }
+
+            // Row 2: 4, 5, 6, Minus
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                NumPadKey(text = "4", modifier = Modifier.weight(1f)) { onDigit("4") }
+                NumPadKey(text = "5", modifier = Modifier.weight(1f)) { onDigit("5") }
+                NumPadKey(text = "6", modifier = Modifier.weight(1f)) { onDigit("6") }
+                NumPadKey(text = "-", modifier = Modifier.weight(1f)) { onMinus() }
+            }
+
+            // Row 3: 7, 8, 9, Empty
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                NumPadKey(text = "7", modifier = Modifier.weight(1f)) { onDigit("7") }
+                NumPadKey(text = "8", modifier = Modifier.weight(1f)) { onDigit("8") }
+                NumPadKey(text = "9", modifier = Modifier.weight(1f)) { onDigit("9") }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                        .background(MaterialTheme.colorScheme.surface)
+                )
+            }
+
+            // Row 4: Empty, 0, Decimal, Empty
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                        .background(MaterialTheme.colorScheme.surface)
+                )
+                NumPadKey(text = "0", modifier = Modifier.weight(1f)) { onDigit("0") }
+                NumPadKey(text = ".", modifier = Modifier.weight(1f)) { onDigit(".") }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                        .background(MaterialTheme.colorScheme.surface)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun NumPadKey(
+    text: String? = null,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .height(56.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (icon != null) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        } else if (text != null) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+fun NoteInputPanel(
+    note: String,
+    onNoteChange: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Note",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            IconButton(onClick = onClose) {
+                Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = note,
+            onValueChange = onNoteChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 100.dp),
+            placeholder = { Text("Add a note...") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onClose() })
+        )
+    }
+}
+
+@Composable
+fun SaveButtonsPanel(
+    onSave: () -> Unit,
+    onContinue: () -> Unit,
+    isEditing: Boolean,
+    typeColor: Color
+) {
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .then(
-                if (isSelected) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                } else Modifier
-            )
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxWidth()
+            .padding(16.dp)
     ) {
-        CategoryIcon(
-            icon = category.icon,
-            color = category.color,
-            size = 44.dp,
-            iconSize = 22.dp
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = category.name,
-            style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            fontSize = 10.sp
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Save Button
+            Button(
+                onClick = onSave,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = typeColor
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Save",
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            // Continue Button (only for new transactions)
+            if (!isEditing) {
+                OutlinedButton(
+                    onClick = onContinue,
+                    modifier = Modifier.weight(0.6f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text(
+                        text = "Continue",
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -608,208 +1095,5 @@ fun DatePickerDialog(
         }
     ) {
         DatePicker(state = datePickerState)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CategoryDropdown(
-    categories: List<Category>,
-    selectedCategoryId: Long?,
-    allCategories: List<Category>,
-    onCategorySelected: (Long?) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedCategory = allCategories.find { it.id == selectedCategoryId }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedCategory?.name ?: "",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Category") },
-            placeholder = { Text("Select a category") },
-            leadingIcon = {
-                if (selectedCategory != null) {
-                    CategoryIcon(
-                        icon = selectedCategory.icon,
-                        color = selectedCategory.color,
-                        size = 24.dp,
-                        iconSize = 14.dp
-                    )
-                } else {
-                    Icon(Icons.Default.Category, contentDescription = null)
-                }
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            categories.forEach { category ->
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CategoryIcon(
-                                icon = category.icon,
-                                color = category.color,
-                                size = 32.dp,
-                                iconSize = 16.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(category.name)
-                        }
-                    },
-                    onClick = {
-                        onCategorySelected(category.id)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SubcategoryDropdown(
-    subcategories: List<Category>,
-    selectedSubcategoryId: Long?,
-    onSubcategorySelected: (Long?) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedSubcategory = subcategories.find { it.id == selectedSubcategoryId }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedSubcategory?.name ?: "",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Subcategory") },
-            placeholder = { Text("Select a subcategory") },
-            leadingIcon = {
-                if (selectedSubcategory != null) {
-                    CategoryIcon(
-                        icon = selectedSubcategory.icon,
-                        color = selectedSubcategory.color,
-                        size = 24.dp,
-                        iconSize = 14.dp
-                    )
-                } else {
-                    Icon(Icons.Default.SubdirectoryArrowRight, contentDescription = null)
-                }
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            subcategories.forEach { subcategory ->
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CategoryIcon(
-                                icon = subcategory.icon,
-                                color = subcategory.color,
-                                size = 32.dp,
-                                iconSize = 16.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(subcategory.name)
-                        }
-                    },
-                    onClick = {
-                        onSubcategorySelected(subcategory.id)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AccountSelector(
-    accounts: List<Account>,
-    selectedAccountId: Long?,
-    onAccountSelected: (Long?) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedAccount = accounts.find { it.id == selectedAccountId }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedAccount?.name ?: "Select Account",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Account") },
-            leadingIcon = {
-                if (selectedAccount != null) {
-                    CategoryIcon(
-                        icon = selectedAccount.icon,
-                        color = selectedAccount.color,
-                        size = 24.dp,
-                        iconSize = 14.dp
-                    )
-                } else {
-                    Icon(Icons.Default.AccountBalance, contentDescription = null)
-                }
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            accounts.forEach { account ->
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CategoryIcon(
-                                icon = account.icon,
-                                color = account.color,
-                                size = 32.dp,
-                                iconSize = 16.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(account.name)
-                                Text(
-                                    text = AccountTypeNames[account.type] ?: account.type.name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
-                    },
-                    onClick = {
-                        onAccountSelected(account.id)
-                        expanded = false
-                    },
-                    leadingIcon = null
-                )
-            }
-        }
     }
 }

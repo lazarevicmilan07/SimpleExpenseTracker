@@ -3,6 +3,7 @@ package com.expensetracker.app.ui.transaction
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.expensetracker.app.data.repository.AccountRepository
 import com.expensetracker.app.data.repository.CategoryRepository
 import com.expensetracker.app.data.repository.ExpenseRepository
 import com.expensetracker.app.domain.model.ExpenseWithCategory
@@ -19,6 +20,7 @@ import javax.inject.Inject
 class TransactionDetailViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val categoryRepository: CategoryRepository,
+    private val accountRepository: AccountRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -40,7 +42,9 @@ class TransactionDetailViewModel @Inject constructor(
             if (expense != null) {
                 val category = expense.categoryId?.let { categoryRepository.getCategoryById(it) }
                 val subcategory = expense.subcategoryId?.let { categoryRepository.getCategoryById(it) }
-                _transaction.value = ExpenseWithCategory(expense, category, subcategory)
+                val account = expense.accountId?.let { accountRepository.getAccountById(it) }
+                val toAccount = expense.toAccountId?.let { accountRepository.getAccountById(it) }
+                _transaction.value = ExpenseWithCategory(expense, category, subcategory, account, toAccount)
             }
         }
     }

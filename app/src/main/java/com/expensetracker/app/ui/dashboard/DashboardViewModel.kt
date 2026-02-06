@@ -113,7 +113,8 @@ class DashboardViewModel @Inject constructor(
                 expense = expense,
                 category = expense.categoryId?.let { categoriesMap[it] },
                 subcategory = expense.subcategoryId?.let { categoriesMap[it] },
-                account = expense.accountId?.let { accountsMap[it] }
+                account = expense.accountId?.let { accountsMap[it] },
+                toAccount = expense.toAccountId?.let { accountsMap[it] }
             )
         }
 

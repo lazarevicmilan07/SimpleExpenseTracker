@@ -21,7 +21,11 @@
       "Bash(./gradlew assembleDebug:*)",
       "Bash(gradlew.bat:*)",
       "Bash(cmd.exe:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(.gradlew.bat:*)",
+      "Bash(cmd /c:*)",
+      "Bash(./gradlew.bat assembleDebug:*)",
+      "Bash(gradle --version:*)"
     ]
   }
 }

@@ -58,8 +58,17 @@ interface AccountDao {
             (SELECT initialBalance FROM accounts WHERE id = :accountId), 0.0
         ) +
         COALESCE(
-            (SELECT SUM(CASE WHEN type = 'INCOME' THEN amount ELSE -amount END)
-             FROM expenses WHERE accountId = :accountId), 0.0
+            (SELECT SUM(
+                CASE
+                    WHEN type = 'INCOME' THEN amount
+                    WHEN type = 'EXPENSE' THEN -amount
+                    WHEN type = 'TRANSFER' THEN -amount
+                    ELSE 0
+                END
+            ) FROM expenses WHERE accountId = :accountId), 0.0
+        ) +
+        COALESCE(
+            (SELECT SUM(amount) FROM expenses WHERE toAccountId = :accountId AND type = 'TRANSFER'), 0.0
         )
     """)
     fun getAccountBalance(accountId: Long): Flow<Double>
@@ -68,8 +77,13 @@ interface AccountDao {
         SELECT SUM(
             COALESCE(a.initialBalance, 0.0) +
             COALESCE(
-                (SELECT SUM(CASE WHEN e.type = 'INCOME' THEN e.amount ELSE -e.amount END)
-                 FROM expenses e WHERE e.accountId = a.id), 0.0
+                (SELECT SUM(
+                    CASE
+                        WHEN e.type = 'INCOME' THEN e.amount
+                        WHEN e.type = 'EXPENSE' THEN -e.amount
+                        ELSE 0
+                    END
+                ) FROM expenses e WHERE e.accountId = a.id), 0.0
             )
         )
         FROM accounts a
@@ -80,8 +94,17 @@ interface AccountDao {
         SELECT a.*,
             COALESCE(a.initialBalance, 0.0) +
             COALESCE(
-                (SELECT SUM(CASE WHEN e.type = 'INCOME' THEN e.amount ELSE -e.amount END)
-                 FROM expenses e WHERE e.accountId = a.id), 0.0
+                (SELECT SUM(
+                    CASE
+                        WHEN e.type = 'INCOME' THEN e.amount
+                        WHEN e.type = 'EXPENSE' THEN -e.amount
+                        WHEN e.type = 'TRANSFER' THEN -e.amount
+                        ELSE 0
+                    END
+                ) FROM expenses e WHERE e.accountId = a.id), 0.0
+            ) +
+            COALESCE(
+                (SELECT SUM(e.amount) FROM expenses e WHERE e.toAccountId = a.id AND e.type = 'TRANSFER'), 0.0
             ) as currentBalance
         FROM accounts a
         ORDER BY a.isDefault DESC, a.name ASC

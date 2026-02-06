@@ -23,6 +23,7 @@ import com.expensetracker.app.ui.components.CategoryIcon
 import com.expensetracker.app.ui.components.formatCurrency
 import com.expensetracker.app.ui.theme.ExpenseRed
 import com.expensetracker.app.ui.theme.IncomeGreen
+import com.expensetracker.app.ui.theme.TransferBlue
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,7 +141,12 @@ fun TransactionDetailContent(
     modifier: Modifier = Modifier
 ) {
     val isExpense = transaction.expense.type == TransactionType.EXPENSE
-    val amountColor = if (isExpense) ExpenseRed else IncomeGreen
+    val isTransfer = transaction.expense.type == TransactionType.TRANSFER
+    val amountColor = when (transaction.expense.type) {
+        TransactionType.EXPENSE -> ExpenseRed
+        TransactionType.INCOME -> IncomeGreen
+        TransactionType.TRANSFER -> TransferBlue
+    }
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
 
     Column(
@@ -161,13 +167,21 @@ fun TransactionDetailContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = if (isExpense) "Expense" else "Income",
+                    text = when (transaction.expense.type) {
+                        TransactionType.EXPENSE -> "Expense"
+                        TransactionType.INCOME -> "Income"
+                        TransactionType.TRANSFER -> "Transfer"
+                    },
                     style = MaterialTheme.typography.labelLarge,
                     color = amountColor
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "${if (isExpense) "-" else "+"}${formatCurrency(transaction.expense.amount, currency)}",
+                    text = when {
+                        isTransfer -> formatCurrency(transaction.expense.amount, currency)
+                        isExpense -> "-${formatCurrency(transaction.expense.amount, currency)}"
+                        else -> "+${formatCurrency(transaction.expense.amount, currency)}"
+                    },
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
                     color = amountColor
@@ -190,46 +204,63 @@ fun TransactionDetailContent(
 
                 HorizontalDivider()
 
-                // Category
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Category,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.size(20.dp)
+                // Category or Transfer Details
+                if (isTransfer) {
+                    // From Account
+                    DetailRow(
+                        icon = Icons.Default.AccountBalance,
+                        label = "From",
+                        value = transaction.account?.name ?: "Unknown"
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Category",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    HorizontalDivider()
+                    // To Account
+                    DetailRow(
+                        icon = Icons.Default.AccountBalance,
+                        label = "To",
+                        value = transaction.toAccount?.name ?: "Unknown"
+                    )
+                } else {
+                    // Category
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Category,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            transaction.category?.let { category ->
-                                CategoryIcon(
-                                    icon = category.icon,
-                                    color = category.color,
-                                    size = 24.dp,
-                                    iconSize = 14.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = buildString {
-                                        append(category.name)
-                                        transaction.subcategory?.let { append(" / ${it.name}") }
-                                    },
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            } ?: Text(
-                                text = "Uncategorized",
-                                style = MaterialTheme.typography.bodyLarge,
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Category",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                transaction.category?.let { category ->
+                                    CategoryIcon(
+                                        icon = category.icon,
+                                        color = category.color,
+                                        size = 24.dp,
+                                        iconSize = 14.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = buildString {
+                                            append(category.name)
+                                            transaction.subcategory?.let { append(" / ${it.name}") }
+                                        },
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                } ?: Text(
+                                    text = "Uncategorized",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
                         }
                     }
                 }

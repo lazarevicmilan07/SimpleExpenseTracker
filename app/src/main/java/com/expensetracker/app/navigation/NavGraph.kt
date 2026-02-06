@@ -66,7 +66,9 @@ fun NavGraph(
 
         composable(Screen.AddTransaction.route) {
             TransactionScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
+                onNavigateToCategories = { navController.navigate(Screen.Categories.route) }
             )
         }
 
@@ -80,7 +82,9 @@ fun NavGraph(
                 onNavigateBack = { navController.popBackStack() },
                 onCopyTransaction = { expenseId, useToday ->
                     navController.navigate(Screen.CopyTransaction.createRoute(expenseId, useToday))
-                }
+                },
+                onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
+                onNavigateToCategories = { navController.navigate(Screen.Categories.route) }
             )
         }
 
@@ -94,7 +98,9 @@ fun NavGraph(
             TransactionScreen(
                 onNavigateBack = {
                     navController.popBackStack(Screen.Dashboard.route, inclusive = false)
-                }
+                },
+                onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
+                onNavigateToCategories = { navController.navigate(Screen.Categories.route) }
             )
         }
 
