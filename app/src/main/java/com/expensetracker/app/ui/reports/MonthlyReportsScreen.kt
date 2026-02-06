@@ -39,6 +39,7 @@ import com.expensetracker.app.ui.theme.IncomeGreen
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MonthlyReportsScreen(
     currency: String,
@@ -51,42 +52,50 @@ fun MonthlyReportsScreen(
     val dragOffset = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(selectedMonth) {
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        coroutineScope.launch {
-                            val currentOffset = dragOffset.value
-                            if (currentOffset > swipeThreshold) {
-                                dragOffset.animateTo(size.width.toFloat(), tween(150))
-                                viewModel.previousMonth()
-                                dragOffset.snapTo(-size.width.toFloat())
-                                dragOffset.animateTo(0f, tween(200))
-                            } else if (currentOffset < -swipeThreshold) {
-                                dragOffset.animateTo(-size.width.toFloat(), tween(150))
-                                viewModel.nextMonth()
-                                dragOffset.snapTo(size.width.toFloat())
-                                dragOffset.animateTo(0f, tween(200))
-                            } else {
-                                dragOffset.animateTo(0f, tween(200))
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Monthly Reports") }
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .pointerInput(selectedMonth) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            coroutineScope.launch {
+                                val currentOffset = dragOffset.value
+                                if (currentOffset > swipeThreshold) {
+                                    dragOffset.animateTo(size.width.toFloat(), tween(150))
+                                    viewModel.previousMonth()
+                                    dragOffset.snapTo(-size.width.toFloat())
+                                    dragOffset.animateTo(0f, tween(200))
+                                } else if (currentOffset < -swipeThreshold) {
+                                    dragOffset.animateTo(-size.width.toFloat(), tween(150))
+                                    viewModel.nextMonth()
+                                    dragOffset.snapTo(size.width.toFloat())
+                                    dragOffset.animateTo(0f, tween(200))
+                                } else {
+                                    dragOffset.animateTo(0f, tween(200))
+                                }
+                            }
+                        },
+                        onDragCancel = {
+                            coroutineScope.launch { dragOffset.animateTo(0f, tween(200)) }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            coroutineScope.launch {
+                                dragOffset.snapTo(dragOffset.value + dragAmount)
                             }
                         }
-                    },
-                    onDragCancel = {
-                        coroutineScope.launch { dragOffset.animateTo(0f, tween(200)) }
-                    },
-                    onHorizontalDrag = { _, dragAmount ->
-                        coroutineScope.launch {
-                            dragOffset.snapTo(dragOffset.value + dragAmount)
-                        }
-                    }
-                )
-            },
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+                    )
+                },
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 140.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         // Month Selector
         item {
             MonthSelector(
@@ -136,6 +145,7 @@ fun MonthlyReportsScreen(
                 }
             }
         }
+        }
     }
 }
 
@@ -148,7 +158,7 @@ fun MonthSelector(
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

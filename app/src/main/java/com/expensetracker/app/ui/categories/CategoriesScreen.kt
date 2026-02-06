@@ -36,7 +36,7 @@ import com.expensetracker.app.ui.components.getIconForName
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
     onShowPremium: () -> Unit,
     preferencesManager: PreferencesManager,
     viewModel: CategoriesViewModel = hiltViewModel()
@@ -72,8 +72,10 @@ fun CategoriesScreen(
             TopAppBar(
                 title = { Text("Categories") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 },
                 actions = {
@@ -82,47 +84,56 @@ fun CategoriesScreen(
                     }
                 }
             )
-        },
-        bottomBar = {
-            AdBanner(preferencesManager = preferencesManager)
         }
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(paddingValues)
         ) {
-            // Display hierarchical categories
-            categoriesState.rootCategories.forEach { category ->
-                val hasSubcategories = categoriesState.subcategoriesMap.containsKey(category.id)
-                val isExpanded = category.id in expandedCategories
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Display hierarchical categories
+                categoriesState.rootCategories.forEach { category ->
+                    val hasSubcategories = categoriesState.subcategoriesMap.containsKey(category.id)
+                    val isExpanded = category.id in expandedCategories
 
-                item(key = category.id) {
-                    CategoryListItem(
-                        category = category,
-                        hasSubcategories = hasSubcategories,
-                        isExpanded = isExpanded,
-                        onToggleExpand = { viewModel.toggleCategoryExpanded(category.id) },
-                        onClick = { viewModel.showEditDialog(category) },
-                        onAddSubcategory = { viewModel.showAddDialog(parentCategoryId = category.id) }
-                    )
-                }
+                    item(key = category.id) {
+                        CategoryListItem(
+                            category = category,
+                            hasSubcategories = hasSubcategories,
+                            isExpanded = isExpanded,
+                            onToggleExpand = { viewModel.toggleCategoryExpanded(category.id) },
+                            onClick = { viewModel.showEditDialog(category) },
+                            onAddSubcategory = { viewModel.showAddDialog(parentCategoryId = category.id) }
+                        )
+                    }
 
-                // Show subcategories when expanded
-                if (hasSubcategories && isExpanded) {
-                    val subcategories = categoriesState.subcategoriesMap[category.id] ?: emptyList()
-                    subcategories.forEach { subcategory ->
-                        item(key = subcategory.id) {
-                            SubcategoryListItem(
-                                category = subcategory,
-                                onClick = { viewModel.showEditDialog(subcategory) }
-                            )
+                    // Show subcategories when expanded
+                    if (hasSubcategories && isExpanded) {
+                        val subcategories = categoriesState.subcategoriesMap[category.id] ?: emptyList()
+                        subcategories.forEach { subcategory ->
+                            item(key = subcategory.id) {
+                                SubcategoryListItem(
+                                    category = subcategory,
+                                    onClick = { viewModel.showEditDialog(subcategory) }
+                                )
+                            }
                         }
                     }
                 }
             }
+
+            // Ad banner at the bottom, sitting on top of the nav bar
+            AdBanner(
+                preferencesManager = preferencesManager,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 56.dp)
+            )
         }
     }
 

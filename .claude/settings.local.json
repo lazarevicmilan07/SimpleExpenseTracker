@@ -17,7 +17,11 @@
       "Bash(npm init:*)",
       "Bash(node resize-icons.js:*)",
       "Bash(node get-color.js:*)",
-      "Bash(node get-color2.js:*)"
+      "Bash(node get-color2.js:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(gradlew.bat:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

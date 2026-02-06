@@ -41,7 +41,7 @@ import com.expensetracker.app.ui.components.getIconForName
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
     currency: String,
     preferencesManager: PreferencesManager,
     viewModel: AccountsViewModel = hiltViewModel()
@@ -73,8 +73,10 @@ fun AccountsScreen(
             TopAppBar(
                 title = { Text("Accounts") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 },
                 actions = {
@@ -83,47 +85,56 @@ fun AccountsScreen(
                     }
                 }
             )
-        },
-        bottomBar = {
-            AdBanner(preferencesManager = preferencesManager)
         }
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(paddingValues)
         ) {
-            // Total Balance Card
-            item {
-                TotalBalanceCard(
-                    totalBalance = accountsState.totalBalance,
-                    currency = currency
-                )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Total Balance Card
+                item {
+                    TotalBalanceCard(
+                        totalBalance = accountsState.totalBalance,
+                        currency = currency
+                    )
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Your Accounts",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+
+                items(
+                    items = accountsState.accounts,
+                    key = { it.account.id }
+                ) { accountWithBalance ->
+                    AccountListItem(
+                        accountWithBalance = accountWithBalance,
+                        currency = currency,
+                        onClick = { viewModel.showEditDialog(accountWithBalance.account) },
+                        onToggleDefault = { viewModel.toggleDefault(accountWithBalance.account) }
+                    )
+                }
             }
 
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Your Accounts",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-
-            items(
-                items = accountsState.accounts,
-                key = { it.account.id }
-            ) { accountWithBalance ->
-                AccountListItem(
-                    accountWithBalance = accountWithBalance,
-                    currency = currency,
-                    onClick = { viewModel.showEditDialog(accountWithBalance.account) },
-                    onToggleDefault = { viewModel.toggleDefault(accountWithBalance.account) }
-                )
-            }
+            // Ad banner at the bottom, sitting on top of the nav bar
+            AdBanner(
+                preferencesManager = preferencesManager,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 56.dp)
+            )
         }
     }
 

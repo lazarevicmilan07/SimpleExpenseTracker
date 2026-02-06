@@ -47,9 +47,6 @@ import java.time.format.DateTimeFormatter
 fun DashboardScreen(
     onAddTransaction: () -> Unit,
     onViewTransaction: (Long) -> Unit,
-    onNavigateToCategories: () -> Unit,
-    onNavigateToAccounts: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -60,18 +57,7 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Expense Tracker") },
-                actions = {
-                    IconButton(onClick = onNavigateToAccounts) {
-                        Icon(Icons.Default.AccountBalance, contentDescription = "Accounts")
-                    }
-                    IconButton(onClick = onNavigateToCategories) {
-                        Icon(Icons.Default.Category, contentDescription = "Categories")
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                }
+                title = { Text("Transactions") }
             )
         },
         floatingActionButton = {
@@ -175,12 +161,6 @@ fun DashboardScreen(
 
                         // Transactions grouped by date
                         if (uiState.recentTransactions.isNotEmpty()) {
-                            Text(
-                                text = "Transactions",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-
                             val groupedByDate = uiState.recentTransactions
                                 .sortedByDescending { it.expense.date }
                                 .groupBy { it.expense.date }

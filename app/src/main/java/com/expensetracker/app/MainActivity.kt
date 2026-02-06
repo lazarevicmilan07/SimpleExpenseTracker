@@ -10,27 +10,63 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.animation.doOnEnd
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Assessment
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -41,11 +77,49 @@ import com.expensetracker.app.ui.theme.ExpenseTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
-data class BottomNavItem(
+sealed class BottomNavItem(
     val label: String,
-    val icon: ImageVector,
-    val route: String
-)
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector,
+    val route: String,
+    val hasSubmenu: Boolean = false
+) {
+    data object Records : BottomNavItem(
+        "Transactions",
+        Icons.Filled.Receipt,
+        Icons.Outlined.Receipt,
+        Screen.Dashboard.route
+    )
+    data object Stats : BottomNavItem(
+        "Stats",
+        Icons.Filled.Assessment,
+        Icons.Outlined.Assessment,
+        "stats",
+        hasSubmenu = true
+    )
+    data object Accounts : BottomNavItem(
+        "Accounts",
+        Icons.Filled.AccountBalance,
+        Icons.Outlined.AccountBalance,
+        Screen.Accounts.route
+    )
+    data object Categories : BottomNavItem(
+        "Categories",
+        Icons.Filled.Category,
+        Icons.Outlined.Category,
+        Screen.Categories.route
+    )
+    data object Settings : BottomNavItem(
+        "Settings",
+        Icons.Filled.Settings,
+        Icons.Outlined.Settings,
+        Screen.Settings.route
+    )
+}
+
+// Navigation bar accent color (golden/yellow like in the reference image)
+private val NavBarAccent = Color(0xFFD4C896)
+private val NavBarAccentDark = Color(0xFFB8A970)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -109,30 +183,51 @@ class MainActivity : ComponentActivity() {
                 val currentDestination = navBackStackEntry?.destination
 
                 val bottomNavItems = listOf(
-                    BottomNavItem("Transactions", Icons.Default.Home, Screen.Dashboard.route),
-                    BottomNavItem("Monthly", Icons.Default.Assessment, Screen.MonthlyReports.route),
-                    BottomNavItem("Yearly", Icons.Default.CalendarMonth, Screen.YearlyReports.route)
+                    BottomNavItem.Records,
+                    BottomNavItem.Stats,
+                    BottomNavItem.Accounts,
+                    BottomNavItem.Categories,
+                    BottomNavItem.Settings
                 )
 
-                // Only show bottom nav on main screens
-                val showBottomNav = currentDestination?.route in bottomNavItems.map { it.route }
+                // Main nav destinations where bottom nav should be visible
+                val mainNavRoutes = listOf(
+                    Screen.Dashboard.route,
+                    Screen.MonthlyReports.route,
+                    Screen.YearlyReports.route,
+                    Screen.Accounts.route,
+                    Screen.Categories.route,
+                    Screen.Settings.route
+                )
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
-                        if (showBottomNav) {
-                            Column(modifier = Modifier.navigationBarsPadding()) {
-                                NavigationBar(
-                                    modifier = Modifier.height(56.dp),
-                                    windowInsets = WindowInsets(0, 0, 0, 0),
-                                    tonalElevation = 0.dp
-                                ) {
-                                    bottomNavItems.forEach { item ->
-                                        NavigationBarItem(
-                                            icon = { Icon(item.icon, contentDescription = item.label) },
-                                            label = { Text(item.label) },
-                                            selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
-                                            onClick = {
+                val showBottomNav = currentDestination?.route in mainNavRoutes
+
+                // Track stats submenu visibility
+                var showStatsSubmenu by remember { mutableStateOf(false) }
+
+                // Determine which nav item is selected
+                val currentRoute = currentDestination?.route
+                val isStatsSelected = currentRoute in listOf(
+                    Screen.MonthlyReports.route,
+                    Screen.YearlyReports.route
+                )
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        bottomBar = {
+                            if (showBottomNav) {
+                                Column(modifier = Modifier.navigationBarsPadding()) {
+                                    CustomNavigationBar(
+                                        items = bottomNavItems,
+                                        currentRoute = currentRoute,
+                                        isStatsSelected = isStatsSelected,
+                                        isDarkMode = isDarkMode,
+                                        onItemClick = { item ->
+                                            if (item.hasSubmenu) {
+                                                showStatsSubmenu = !showStatsSubmenu
+                                            } else {
+                                                showStatsSubmenu = false
                                                 navController.navigate(item.route) {
                                                     popUpTo(navController.graph.findStartDestination().id) {
                                                         saveState = true
@@ -141,19 +236,235 @@ class MainActivity : ComponentActivity() {
                                                     restoreState = true
                                                 }
                                             }
-                                        )
-                                    }
+                                        }
+                                    )
                                 }
                             }
                         }
+                    ) { _ ->
+                        NavGraph(
+                            navController = navController,
+                            preferencesManager = preferencesManager,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
-                ) { _ ->
-                    NavGraph(
-                        navController = navController,
-                        preferencesManager = preferencesManager,
-                        modifier = Modifier.fillMaxSize()
-                    )
+
+                    // Dismiss overlay when stats submenu is open (captures taps outside submenu)
+                    // Excludes the nav bar area so nav bar remains clickable
+                    if (showStatsSubmenu) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .navigationBarsPadding()
+                                .padding(bottom = 56.dp) // Nav bar height
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { showStatsSubmenu = false }
+                        )
+                    }
+
+                    // Stats submenu popup - positioned above nav bar (on top of overlay)
+                    if (showBottomNav) {
+                        AnimatedVisibility(
+                            visible = showStatsSubmenu,
+                            enter = fadeIn() + slideInVertically { it },
+                            exit = fadeOut() + slideOutVertically { it },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .navigationBarsPadding()
+                                .offset(x = (-60).dp, y = (-70).dp)
+                        ) {
+                            StatsSubmenu(
+                                isDarkMode = isDarkMode,
+                                currentRoute = currentRoute,
+                                onMonthlyClick = {
+                                    showStatsSubmenu = false
+                                    navController.navigate(Screen.MonthlyReports.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                onYearlyClick = {
+                                    showStatsSubmenu = false
+                                    navController.navigate(Screen.YearlyReports.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                onDismiss = { showStatsSubmenu = false }
+                            )
+                        }
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomNavigationBar(
+    items: List<BottomNavItem>,
+    currentRoute: String?,
+    isStatsSelected: Boolean,
+    isDarkMode: Boolean,
+    onItemClick: (BottomNavItem) -> Unit
+) {
+    val backgroundColor = if (isDarkMode) {
+        Color(0xFF1E1E1E)
+    } else {
+        Color(0xFF2D2D2D)
+    }
+
+    val selectedColor = if (isDarkMode) NavBarAccent else NavBarAccentDark
+    val unselectedColor = if (isDarkMode) Color(0xFF8A8A7A) else Color(0xFF9A9A8A)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        color = backgroundColor,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { item ->
+                val isSelected = when {
+                    item.hasSubmenu -> isStatsSelected
+                    else -> currentRoute == item.route
+                }
+
+                val itemColor = if (isSelected) selectedColor else unselectedColor
+
+                NavBarItem(
+                    item = item,
+                    isSelected = isSelected,
+                    color = itemColor,
+                    onClick = { onItemClick(item) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun NavBarItem(
+    item: BottomNavItem,
+    isSelected: Boolean,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+            contentDescription = item.label,
+            tint = color,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(
+            text = item.label,
+            color = color,
+            fontSize = 10.sp,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+            lineHeight = 12.sp
+        )
+    }
+}
+
+@Composable
+fun StatsSubmenu(
+    isDarkMode: Boolean,
+    currentRoute: String?,
+    onMonthlyClick: () -> Unit,
+    onYearlyClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val backgroundColor = if (isDarkMode) Color(0xFF3D3D3D) else Color(0xFF5A5A5A)
+    val selectedColor = if (isDarkMode) NavBarAccent else NavBarAccentDark
+    val unselectedColor = if (isDarkMode) Color(0xFFAAAAAA) else Color(0xFFCCCCCC)
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = backgroundColor,
+        shadowElevation = 8.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Monthly option
+            val isMonthlySelected = currentRoute == Screen.MonthlyReports.route
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onMonthlyClick)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .width(100.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Assessment,
+                    contentDescription = null,
+                    tint = if (isMonthlySelected) selectedColor else unselectedColor,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Monthly",
+                    color = if (isMonthlySelected) selectedColor else unselectedColor,
+                    fontSize = 13.sp,
+                    fontWeight = if (isMonthlySelected) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+
+            // Yearly option
+            val isYearlySelected = currentRoute == Screen.YearlyReports.route
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onYearlyClick)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .width(100.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CalendarMonth,
+                    contentDescription = null,
+                    tint = if (isYearlySelected) selectedColor else unselectedColor,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Yearly",
+                    color = if (isYearlySelected) selectedColor else unselectedColor,
+                    fontSize = 13.sp,
+                    fontWeight = if (isYearlySelected) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
     }

@@ -60,15 +60,6 @@ fun NavGraph(
                 },
                 onViewTransaction = { expenseId ->
                     navController.navigate(Screen.EditTransaction.createRoute(expenseId))
-                },
-                onNavigateToCategories = {
-                    navController.navigate(Screen.Categories.route)
-                },
-                onNavigateToAccounts = {
-                    navController.navigate(Screen.Accounts.route)
-                },
-                onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -127,7 +118,6 @@ fun NavGraph(
 
         composable(Screen.Categories.route) {
             CategoriesScreen(
-                onNavigateBack = { navController.popBackStack() },
                 onShowPremium = { navController.navigate(Screen.Premium.route) },
                 preferencesManager = preferencesManager
             )
@@ -137,7 +127,6 @@ fun NavGraph(
             val dashboardViewModel: DashboardViewModel = hiltViewModel()
             val currency by dashboardViewModel.currency.collectAsState()
             AccountsScreen(
-                onNavigateBack = { navController.popBackStack() },
                 currency = currency,
                 preferencesManager = preferencesManager
             )
@@ -145,7 +134,6 @@ fun NavGraph(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onNavigateBack = { navController.popBackStack() },
                 onShowPremium = { navController.navigate(Screen.Premium.route) },
                 preferencesManager = preferencesManager
             )

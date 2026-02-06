@@ -29,7 +29,7 @@ enum class PendingExportAction {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
     onShowPremium: () -> Unit,
     preferencesManager: PreferencesManager,
     viewModel: SettingsViewModel = hiltViewModel()
@@ -142,126 +142,138 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 }
             )
-        },
-        bottomBar = {
-            AdBanner(preferencesManager = preferencesManager)
         }
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Premium Banner
-            if (!userPreferences.isPremium) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 120.dp)
+            ) {
+                // Premium Banner
+                if (!userPreferences.isPremium) {
+                    item {
+                        PremiumBanner(onClick = onShowPremium)
+                    }
+                }
+
+                // Appearance Section
                 item {
-                    PremiumBanner(onClick = onShowPremium)
+                    SettingsSectionHeader("Appearance")
+                }
+
+                item {
+                    SettingsSwitch(
+                        icon = Icons.Default.DarkMode,
+                        title = "Dark Mode",
+                        subtitle = "Use dark theme",
+                        checked = userPreferences.isDarkMode,
+                        onCheckedChange = viewModel::setDarkMode
+                    )
+                }
+
+                item {
+                    SettingsItem(
+                        icon = Icons.Default.AttachMoney,
+                        title = "Currency",
+                        subtitle = userPreferences.currency,
+                        onClick = { viewModel.showCurrencyPicker() }
+                    )
+                }
+
+                // Data Section
+                item {
+                    SettingsSectionHeader("Data")
+                }
+
+                item {
+                    SettingsItem(
+                        icon = Icons.Default.TableChart,
+                        title = "Export to Excel",
+                        subtitle = if (userPreferences.isPremium) "Export all transactions" else "Premium feature",
+                        onClick = {
+                            pendingAction = PendingExportAction.EXCEL
+                            periodDialogTitle = "Export to Excel"
+                            showPeriodDialog = true
+                        },
+                        isPremium = !userPreferences.isPremium
+                    )
+                }
+
+                item {
+                    SettingsItem(
+                        icon = Icons.Default.PictureAsPdf,
+                        title = "Export to PDF",
+                        subtitle = if (userPreferences.isPremium) "Generate expense report" else "Premium feature",
+                        onClick = {
+                            pendingAction = PendingExportAction.PDF
+                            periodDialogTitle = "Export to PDF"
+                            showPeriodDialog = true
+                        },
+                        isPremium = !userPreferences.isPremium
+                    )
+                }
+
+                item {
+                    SettingsItem(
+                        icon = Icons.Default.Backup,
+                        title = "Backup",
+                        subtitle = if (userPreferences.isPremium) "Create data backup" else "Premium feature",
+                        onClick = {
+                            pendingAction = PendingExportAction.BACKUP
+                            periodDialogTitle = "Backup Data"
+                            showPeriodDialog = true
+                        },
+                        isPremium = !userPreferences.isPremium
+                    )
+                }
+
+                item {
+                    SettingsItem(
+                        icon = Icons.Default.Restore,
+                        title = "Restore",
+                        subtitle = if (userPreferences.isPremium) "Restore from backup" else "Premium feature",
+                        onClick = { showRestoreConfirmDialog = true },
+                        isPremium = !userPreferences.isPremium
+                    )
+                }
+
+                // About Section
+                item {
+                    SettingsSectionHeader("About")
+                }
+
+                item {
+                    SettingsItem(
+                        icon = Icons.Default.Info,
+                        title = "Version",
+                        subtitle = "1.0.0",
+                        onClick = {}
+                    )
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
-            // Appearance Section
-            item {
-                SettingsSectionHeader("Appearance")
-            }
-
-            item {
-                SettingsSwitch(
-                    icon = Icons.Default.DarkMode,
-                    title = "Dark Mode",
-                    subtitle = "Use dark theme",
-                    checked = userPreferences.isDarkMode,
-                    onCheckedChange = viewModel::setDarkMode
-                )
-            }
-
-            item {
-                SettingsItem(
-                    icon = Icons.Default.AttachMoney,
-                    title = "Currency",
-                    subtitle = userPreferences.currency,
-                    onClick = { viewModel.showCurrencyPicker() }
-                )
-            }
-
-            // Data Section
-            item {
-                SettingsSectionHeader("Data")
-            }
-
-            item {
-                SettingsItem(
-                    icon = Icons.Default.TableChart,
-                    title = "Export to Excel",
-                    subtitle = if (userPreferences.isPremium) "Export all transactions" else "Premium feature",
-                    onClick = {
-                        pendingAction = PendingExportAction.EXCEL
-                        periodDialogTitle = "Export to Excel"
-                        showPeriodDialog = true
-                    },
-                    isPremium = !userPreferences.isPremium
-                )
-            }
-
-            item {
-                SettingsItem(
-                    icon = Icons.Default.PictureAsPdf,
-                    title = "Export to PDF",
-                    subtitle = if (userPreferences.isPremium) "Generate expense report" else "Premium feature",
-                    onClick = {
-                        pendingAction = PendingExportAction.PDF
-                        periodDialogTitle = "Export to PDF"
-                        showPeriodDialog = true
-                    },
-                    isPremium = !userPreferences.isPremium
-                )
-            }
-
-            item {
-                SettingsItem(
-                    icon = Icons.Default.Backup,
-                    title = "Backup",
-                    subtitle = if (userPreferences.isPremium) "Create data backup" else "Premium feature",
-                    onClick = {
-                        pendingAction = PendingExportAction.BACKUP
-                        periodDialogTitle = "Backup Data"
-                        showPeriodDialog = true
-                    },
-                    isPremium = !userPreferences.isPremium
-                )
-            }
-
-            item {
-                SettingsItem(
-                    icon = Icons.Default.Restore,
-                    title = "Restore",
-                    subtitle = if (userPreferences.isPremium) "Restore from backup" else "Premium feature",
-                    onClick = { showRestoreConfirmDialog = true },
-                    isPremium = !userPreferences.isPremium
-                )
-            }
-
-            // About Section
-            item {
-                SettingsSectionHeader("About")
-            }
-
-            item {
-                SettingsItem(
-                    icon = Icons.Default.Info,
-                    title = "Version",
-                    subtitle = "1.0.0",
-                    onClick = {}
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            // Ad banner at the bottom, sitting on top of the nav bar
+            AdBanner(
+                preferencesManager = preferencesManager,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 56.dp)
+            )
         }
     }
 
