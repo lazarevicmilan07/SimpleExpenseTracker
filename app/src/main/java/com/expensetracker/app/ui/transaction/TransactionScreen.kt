@@ -233,6 +233,7 @@ fun TransactionScreen(
                 uiState = uiState,
                 accounts = accounts,
                 rootCategories = rootCategories,
+                allCategories = allCategories,
                 availableSubcategories = availableSubcategories,
                 currency = currency,
                 viewModel = viewModel,
@@ -380,40 +381,40 @@ fun TransactionFormFields(
         TransactionType.TRANSFER -> TransferBlue
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         // Date Field
         FormFieldRow(
             label = "Date",
             value = "${uiState.selectedDate.format(dateFormatter)} (${uiState.selectedDate.format(dayOfWeekFormatter)})",
-            isActive = uiState.currentField == TransactionField.DATE,
-            activeColor = typeColor,
             onClick = onDateClick
         )
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(
+            color = if (uiState.currentField == TransactionField.DATE) typeColor else MaterialTheme.colorScheme.outlineVariant,
+            thickness = if (uiState.currentField == TransactionField.DATE) 2.dp else 1.dp
+        )
 
         // Account / From Field
         FormFieldRow(
             label = if (uiState.transactionType == TransactionType.TRANSFER) "From" else "Account",
             value = selectedAccount?.name ?: "",
-            isActive = uiState.currentField == TransactionField.ACCOUNT,
-            activeColor = typeColor,
             onClick = { viewModel.setCurrentField(TransactionField.ACCOUNT) },
             iconName = selectedAccount?.icon,
             iconColor = selectedAccount?.color
         )
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(
+            color = if (uiState.currentField == TransactionField.ACCOUNT) typeColor else MaterialTheme.colorScheme.outlineVariant,
+            thickness = if (uiState.currentField == TransactionField.ACCOUNT) 2.dp else 1.dp
+        )
 
         if (uiState.transactionType == TransactionType.TRANSFER) {
             // To Account Field (Transfer only)
             FormFieldRow(
                 label = "To",
                 value = selectedToAccount?.name ?: "",
-                isActive = uiState.currentField == TransactionField.TO_ACCOUNT,
-                activeColor = typeColor,
                 onClick = { viewModel.setCurrentField(TransactionField.TO_ACCOUNT) },
                 iconName = selectedToAccount?.icon,
                 iconColor = selectedToAccount?.color
@@ -423,27 +424,33 @@ fun TransactionFormFields(
             FormFieldRow(
                 label = "Category",
                 value = categoryDisplayText,
-                isActive = uiState.currentField == TransactionField.CATEGORY ||
-                          uiState.currentField == TransactionField.SUBCATEGORY,
-                activeColor = typeColor,
                 onClick = { viewModel.setCurrentField(TransactionField.CATEGORY) },
                 iconName = displayedCategory?.icon,
                 iconColor = displayedCategory?.color
             )
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        val isCategoryFieldActive = if (uiState.transactionType == TransactionType.TRANSFER) {
+            uiState.currentField == TransactionField.TO_ACCOUNT
+        } else {
+            uiState.currentField == TransactionField.CATEGORY || uiState.currentField == TransactionField.SUBCATEGORY
+        }
+        HorizontalDivider(
+            color = if (isCategoryFieldActive) typeColor else MaterialTheme.colorScheme.outlineVariant,
+            thickness = if (isCategoryFieldActive) 2.dp else 1.dp
+        )
 
         // Amount Field
         FormFieldRow(
             label = "Amount",
             value = if (uiState.amount.isNotEmpty()) "${getCurrencySymbol(currency)}${uiState.amount}" else "",
-            isActive = uiState.currentField == TransactionField.AMOUNT,
-            activeColor = typeColor,
             onClick = { viewModel.setCurrentField(TransactionField.AMOUNT) }
         )
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(
+            color = if (uiState.currentField == TransactionField.AMOUNT) typeColor else MaterialTheme.colorScheme.outlineVariant,
+            thickness = if (uiState.currentField == TransactionField.AMOUNT) 2.dp else 1.dp
+        )
 
         // Note Field - inline editable
         val noteFocusRequester = remember { FocusRequester() }
@@ -528,8 +535,6 @@ fun TransactionFormFields(
 fun FormFieldRow(
     label: String,
     value: String,
-    isActive: Boolean,
-    activeColor: Color,
     onClick: () -> Unit,
     isDotted: Boolean = false,
     iconName: String? = null,
@@ -573,15 +578,6 @@ fun FormFieldRow(
                 )
             }
         }
-        if (isActive) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(activeColor)
-            )
-        }
     }
 }
 
@@ -590,6 +586,7 @@ fun BottomSelectionPanel(
     uiState: TransactionUiState,
     accounts: List<Account>,
     rootCategories: List<Category>,
+    allCategories: List<Category>,
     availableSubcategories: List<Category>,
     currency: String,
     viewModel: TransactionViewModel,
@@ -640,6 +637,7 @@ fun BottomSelectionPanel(
                 TransactionField.CATEGORY, TransactionField.SUBCATEGORY -> {
                     CategorySelectionPanel(
                         categories = rootCategories,
+                        allCategories = allCategories,
                         selectedParentCategoryId = uiState.selectedParentCategoryId,
                         subcategories = availableSubcategories,
                         selectedSubcategoryId = uiState.selectedCategoryId,
@@ -795,6 +793,7 @@ fun AccountChip(
 @Composable
 fun CategorySelectionPanel(
     categories: List<Category>,
+    allCategories: List<Category>,
     selectedParentCategoryId: Long?,
     subcategories: List<Category>,
     selectedSubcategoryId: Long?,
@@ -847,7 +846,7 @@ fun CategorySelectionPanel(
                                 onCategorySelected(category.id)
                             }
                         },
-                        showArrow = true,
+                        showArrow = allCategories.any { it.parentCategoryId == category.id },
                         highlightColor = if (isSelected) ExpenseRed.copy(alpha = 0.15f) else Color.Transparent
                     )
                 }

@@ -142,7 +142,7 @@ class TransactionViewModel @Inject constructor(
                     transactionType = expense.type,
                     selectedDate = if (useToday) LocalDate.now() else expense.date,
                     isEditing = false,
-                    currentField = TransactionField.ACCOUNT
+                    currentField = TransactionField.NONE
                 )
                 if (expense.subcategoryId != null && expense.categoryId != null) {
                     _selectedParentCategoryId.value = expense.categoryId

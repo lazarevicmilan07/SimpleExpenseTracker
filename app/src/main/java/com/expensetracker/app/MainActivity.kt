@@ -233,12 +233,14 @@ class MainActivity : ComponentActivity() {
                                                 showStatsSubmenu = !showStatsSubmenu
                                             } else {
                                                 showStatsSubmenu = false
-                                                navController.navigate(item.route) {
-                                                    popUpTo(navController.graph.findStartDestination().id) {
-                                                        saveState = false
+                                                if (currentRoute != item.route) {
+                                                    navController.navigate(item.route) {
+                                                        popUpTo(navController.graph.findStartDestination().id) {
+                                                            saveState = false
+                                                        }
+                                                        launchSingleTop = true
+                                                        restoreState = false
                                                     }
-                                                    launchSingleTop = true
-                                                    restoreState = false
                                                 }
                                             }
                                         }
@@ -285,22 +287,26 @@ class MainActivity : ComponentActivity() {
                                 currentRoute = currentRoute,
                                 onMonthlyClick = {
                                     showStatsSubmenu = false
-                                    navController.navigate(Screen.MonthlyReports.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = false
+                                    if (currentRoute != Screen.MonthlyReports.route) {
+                                        navController.navigate(Screen.MonthlyReports.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = false
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = false
                                         }
-                                        launchSingleTop = true
-                                        restoreState = false
                                     }
                                 },
                                 onYearlyClick = {
                                     showStatsSubmenu = false
-                                    navController.navigate(Screen.YearlyReports.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = false
+                                    if (currentRoute != Screen.YearlyReports.route) {
+                                        navController.navigate(Screen.YearlyReports.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = false
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = false
                                         }
-                                        launchSingleTop = true
-                                        restoreState = false
                                     }
                                 },
                                 onDismiss = { showStatsSubmenu = false }
@@ -423,22 +429,22 @@ fun StatsSubmenu(
     val unselectedColor = if (isDarkMode) Color(0xFFAAAAAA) else Color(0xFF8A8A7A)
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         color = backgroundColor,
         shadowElevation = 8.dp
     ) {
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Monthly option
             val isMonthlySelected = currentRoute == Screen.MonthlyReports.route
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(6.dp))
                     .clickable(onClick = onMonthlyClick)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-                    .width(100.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .width(84.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
@@ -446,14 +452,14 @@ fun StatsSubmenu(
                     imageVector = Icons.Default.Assessment,
                     contentDescription = null,
                     tint = if (isMonthlySelected) selectedColor else unselectedColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = "Monthly",
                     color = if (isMonthlySelected) selectedColor else unselectedColor,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = if (isMonthlySelected) FontWeight.SemiBold else FontWeight.Normal,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 6.dp)
                 )
             }
 
@@ -461,10 +467,10 @@ fun StatsSubmenu(
             val isYearlySelected = currentRoute == Screen.YearlyReports.route
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(6.dp))
                     .clickable(onClick = onYearlyClick)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-                    .width(100.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .width(84.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
@@ -472,14 +478,14 @@ fun StatsSubmenu(
                     imageVector = Icons.Default.CalendarMonth,
                     contentDescription = null,
                     tint = if (isYearlySelected) selectedColor else unselectedColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = "Yearly",
                     color = if (isYearlySelected) selectedColor else unselectedColor,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = if (isYearlySelected) FontWeight.SemiBold else FontWeight.Normal,
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 6.dp)
                 )
             }
         }
