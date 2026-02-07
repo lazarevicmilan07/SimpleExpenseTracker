@@ -96,6 +96,10 @@ class MonthlyReportsViewModel @Inject constructor(
     fun nextMonth() {
         _selectedMonth.value = _selectedMonth.value.plusMonths(1)
     }
+
+    fun selectMonth(yearMonth: YearMonth) {
+        _selectedMonth.value = yearMonth
+    }
 }
 
 data class MonthlyReportsUiState(

@@ -25,7 +25,9 @@
       "Bash(.gradlew.bat:*)",
       "Bash(cmd /c:*)",
       "Bash(./gradlew.bat assembleDebug:*)",
-      "Bash(gradle --version:*)"
+      "Bash(gradle --version:*)",
+      "Bash(C:ComDataProjektiSimpleExpenseTrackergradlew.bat -p C:ComDataProjektiSimpleExpenseTracker assembleDebug)",
+      "Bash(cmd //c \"gradlew.bat assembleDebug 2>&1\")"
     ]
   }
 }

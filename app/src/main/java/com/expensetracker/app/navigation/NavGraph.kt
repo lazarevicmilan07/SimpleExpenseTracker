@@ -1,15 +1,17 @@
 package com.expensetracker.app.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -26,6 +28,22 @@ import com.expensetracker.app.ui.reports.YearlyReportsScreen
 import com.expensetracker.app.ui.settings.SettingsScreen
 import com.expensetracker.app.ui.transaction.TransactionDetailScreen
 import com.expensetracker.app.ui.transaction.TransactionScreen
+
+// Nav bar position index for directional animations
+private fun getNavBarIndex(route: String?): Int {
+    return when {
+        route == null -> -1
+        route == Screen.Dashboard.route -> 0
+        route == Screen.MonthlyReports.route -> 1
+        route == Screen.YearlyReports.route -> 1
+        route == Screen.Accounts.route -> 2
+        route == Screen.Categories.route -> 3
+        route == Screen.Settings.route -> 4
+        else -> -1 // Non-nav-bar screens default to -1
+    }
+}
+
+private fun isNavBarRoute(route: String?): Boolean = getNavBarIndex(route) >= 0
 
 sealed class Screen(val route: String) {
     data object Dashboard : Screen("dashboard")
@@ -59,10 +77,40 @@ fun NavGraph(
         navController = navController,
         startDestination = Screen.Dashboard.route,
         modifier = modifier,
-        enterTransition = { slideInVertically(tween(500)) { it / 4 } + fadeIn(tween(500)) },
-        exitTransition = { fadeOut(tween(350)) },
-        popEnterTransition = { fadeIn(tween(350)) },
-        popExitTransition = { slideOutVertically(tween(400)) { it / 4 } + fadeOut(tween(400)) }
+        enterTransition = {
+            val fromIndex = getNavBarIndex(initialState.destination.route)
+            val toIndex = getNavBarIndex(targetState.destination.route)
+            // If both are nav bar routes, use directional animation
+            if (fromIndex >= 0 && toIndex >= 0) {
+                if (toIndex > fromIndex) {
+                    // Going right: slide in from right
+                    slideInHorizontally(tween(300)) { it / 3 } + fadeIn(tween(300))
+                } else {
+                    // Going left: slide in from left
+                    slideInHorizontally(tween(300)) { -it / 3 } + fadeIn(tween(300))
+                }
+            } else {
+                // Default: slide in from right
+                slideInHorizontally(tween(300)) { it / 3 } + fadeIn(tween(300))
+            }
+        },
+        exitTransition = {
+            val fromIndex = getNavBarIndex(initialState.destination.route)
+            val toIndex = getNavBarIndex(targetState.destination.route)
+            if (fromIndex >= 0 && toIndex >= 0) {
+                if (toIndex > fromIndex) {
+                    // Going right: current screen slides out to left
+                    slideOutHorizontally(tween(300)) { -it / 3 } + fadeOut(tween(300))
+                } else {
+                    // Going left: current screen slides out to right
+                    slideOutHorizontally(tween(300)) { it / 3 } + fadeOut(tween(300))
+                }
+            } else {
+                slideOutHorizontally(tween(300)) { -it / 3 } + fadeOut(tween(300))
+            }
+        },
+        popEnterTransition = { slideInHorizontally(tween(300)) { -it / 3 } + fadeIn(tween(300)) },
+        popExitTransition = { slideOutHorizontally(tween(300)) { it / 3 } + fadeOut(tween(300)) }
     ) {
         composable(Screen.Dashboard.route) {
             DashboardScreen(

@@ -116,6 +116,10 @@ class YearlyReportsViewModel @Inject constructor(
     fun nextYear() {
         _selectedYear.value = _selectedYear.value + 1
     }
+
+    fun selectYear(year: Int) {
+        _selectedYear.value = year
+    }
 }
 
 data class YearlyReportsUiState(

@@ -102,14 +102,15 @@ fun TransactionScreen(
     // Animation state for the form - re-triggers on Continue
     var formAnimKey by remember { mutableStateOf(0) }
     val formAlpha = remember { androidx.compose.animation.core.Animatable(1f) }
-    val formOffsetY = remember { androidx.compose.animation.core.Animatable(0f) }
+    val formOffsetX = remember { androidx.compose.animation.core.Animatable(0f) }
 
     LaunchedEffect(formAnimKey) {
         if (formAnimKey > 0) {
-            // Slide up from the bottom like a navigation popup
-            formAlpha.snapTo(1f)
-            formOffsetY.snapTo(300f)
-            formOffsetY.animateTo(0f, androidx.compose.animation.core.tween(500, easing = androidx.compose.animation.core.EaseOut))
+            // Slide in from the right like navigation transitions
+            formAlpha.snapTo(0f)
+            formOffsetX.snapTo(300f)
+            launch { formAlpha.animateTo(1f, androidx.compose.animation.core.tween(300)) }
+            formOffsetX.animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseOut))
         }
     }
 
@@ -182,7 +183,7 @@ fun TransactionScreen(
                     .weight(1f)
                     .graphicsLayer {
                         alpha = formAlpha.value
-                        translationY = formOffsetY.value
+                        translationX = formOffsetX.value
                     }
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp)

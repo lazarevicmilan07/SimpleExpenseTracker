@@ -330,8 +330,8 @@ class TransactionViewModel @Inject constructor(
             // Reset selections when changing type
             selectedCategoryId = if (type == TransactionType.TRANSFER) null else _uiState.value.selectedCategoryId,
             selectedParentCategoryId = if (type == TransactionType.TRANSFER) null else _uiState.value.selectedParentCategoryId,
-            toAccountId = if (type != TransactionType.TRANSFER) null else _uiState.value.toAccountId,
-            currentField = TransactionField.ACCOUNT
+            toAccountId = if (type != TransactionType.TRANSFER) null else _uiState.value.toAccountId
+            // Don't change currentField - keep focus where it was
         )
     }
 

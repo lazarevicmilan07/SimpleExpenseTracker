@@ -51,6 +51,18 @@ fun YearlyReportsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedYear by viewModel.selectedYear.collectAsState()
+    var showYearPicker by remember { mutableStateOf(false) }
+
+    if (showYearPicker) {
+        YearPickerDialog(
+            selectedYear = selectedYear,
+            onYearSelected = { year ->
+                viewModel.selectYear(year)
+                showYearPicker = false
+            },
+            onDismiss = { showYearPicker = false }
+        )
+    }
 
     val swipeThreshold = 100f
     val dragOffset = remember { Animatable(0f) }
@@ -105,7 +117,8 @@ fun YearlyReportsScreen(
             YearSelector(
                 selectedYear = selectedYear,
                 onPreviousYear = viewModel::previousYear,
-                onNextYear = viewModel::nextYear
+                onNextYear = viewModel::nextYear,
+                onYearClick = { showYearPicker = true }
             )
         }
 
@@ -184,7 +197,8 @@ fun YearlyReportsScreen(
 fun YearSelector(
     selectedYear: Int,
     onPreviousYear: () -> Unit,
-    onNextYear: () -> Unit
+    onNextYear: () -> Unit,
+    onYearClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -198,7 +212,8 @@ fun YearSelector(
         Text(
             text = selectedYear.toString(),
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clickable(onClick = onYearClick)
         )
 
         IconButton(
@@ -208,6 +223,72 @@ fun YearSelector(
             Icon(Icons.Default.ChevronRight, contentDescription = "Next year")
         }
     }
+}
+
+@Composable
+fun YearPickerDialog(
+    selectedYear: Int,
+    onYearSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val currentYear = Year.now().value
+    var pickedYear by remember { mutableIntStateOf(selectedYear) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Year", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column {
+                // Year range: current year - 10 to current year + 5
+                val years = (currentYear - 10)..(currentYear + 5)
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    years.chunked(4).forEach { rowYears ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowYears.forEach { year ->
+                                val isSelected = year == pickedYear
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { pickedYear = year },
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = year.toString(),
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        textAlign = TextAlign.Center,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                            // Fill remaining space if row has fewer than 4 items
+                            repeat(4 - rowYears.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onYearSelected(pickedYear) }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable

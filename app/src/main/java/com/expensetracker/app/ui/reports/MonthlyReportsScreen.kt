@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +49,18 @@ fun MonthlyReportsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
+    var showMonthPicker by remember { mutableStateOf(false) }
+
+    if (showMonthPicker) {
+        MonthYearPickerDialog(
+            selectedMonth = selectedMonth,
+            onMonthSelected = { yearMonth ->
+                viewModel.selectMonth(yearMonth)
+                showMonthPicker = false
+            },
+            onDismiss = { showMonthPicker = false }
+        )
+    }
 
     val swipeThreshold = 100f
     val dragOffset = remember { Animatable(0f) }
@@ -101,7 +115,8 @@ fun MonthlyReportsScreen(
             MonthSelector(
                 selectedMonth = selectedMonth,
                 onPreviousMonth = viewModel::previousMonth,
-                onNextMonth = viewModel::nextMonth
+                onNextMonth = viewModel::nextMonth,
+                onMonthClick = { showMonthPicker = true }
             )
         }
 
@@ -153,7 +168,8 @@ fun MonthlyReportsScreen(
 fun MonthSelector(
     selectedMonth: YearMonth,
     onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit
+    onNextMonth: () -> Unit,
+    onMonthClick: () -> Unit = {}
 ) {
     val formatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
@@ -169,7 +185,8 @@ fun MonthSelector(
         Text(
             text = selectedMonth.format(formatter),
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clickable(onClick = onMonthClick)
         )
 
         IconButton(
@@ -178,6 +195,96 @@ fun MonthSelector(
             Icon(Icons.Default.ChevronRight, contentDescription = "Next month")
         }
     }
+}
+
+@Composable
+fun MonthYearPickerDialog(
+    selectedMonth: YearMonth,
+    onMonthSelected: (YearMonth) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedYear by remember { mutableIntStateOf(selectedMonth.year) }
+    var selectedMonthValue by remember { mutableIntStateOf(selectedMonth.monthValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Month and Year", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column {
+                // Year selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { selectedYear-- }) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous year")
+                    }
+                    Text(
+                        text = selectedYear.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    IconButton(onClick = { selectedYear++ }) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Next year")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Month grid
+                val months = listOf(
+                    "Jan", "Feb", "Mar", "Apr",
+                    "May", "Jun", "Jul", "Aug",
+                    "Sep", "Oct", "Nov", "Dec"
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (row in 0..2) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            for (col in 0..3) {
+                                val monthIndex = row * 4 + col + 1
+                                val isSelected = monthIndex == selectedMonthValue
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { selectedMonthValue = monthIndex },
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = months[monthIndex - 1],
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        textAlign = TextAlign.Center,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onMonthSelected(YearMonth.of(selectedYear, selectedMonthValue))
+            }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
